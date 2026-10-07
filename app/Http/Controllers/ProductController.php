@@ -210,7 +210,8 @@ class ProductController extends Controller
         return response()->json($data);
     }
 
-    private function formatProduct(Product $product, bool $detailed = false, array $groupData = [], bool $showPrices = true): array
+    /** Also used by HomepageController, so homepage products match /api/products. */
+    public function formatProduct(Product $product, bool $detailed = false, array $groupData = [], bool $showPrices = true): array
     {
         $data = [
             'id'             => $product->id,
@@ -261,7 +262,7 @@ class ProductController extends Controller
         return $data;
     }
 
-    private function canSeePrices(): bool
+    public function canSeePrices(): bool
     {
         $user = auth('api')->user();
 

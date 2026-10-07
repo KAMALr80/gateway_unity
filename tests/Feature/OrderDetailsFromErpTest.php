@@ -42,6 +42,7 @@ function erpSale(): array
 {
     return [
         'erp_order_id' => 501, 'invoice_no' => '0042', 'status' => 'shipped', 'payment_status' => 'due',
+        'erp_status' => 'final', 'erp_shipping_status' => 'shipped', 'erp_payment_status' => 'partial',
         'transaction_date' => '2026-10-07T10:20:53-04:00', 'due_date' => '2026-11-06',
         'line_total' => 26.0, 'discount_total' => 2.6, 'shipping_total' => 5.0, 'total_tax' => 0.0, 'total' => 28.4,
         'amount_paid' => 8.0, 'amount_due' => 20.4, 'customer_note' => 'Leave at the back door',
@@ -127,4 +128,43 @@ it("hides another customer's order", function () {
     $this->actingAs($stranger, 'api')->getJson("/api/orders/{$order->id}")->assertNotFound();
 
     Http::assertNothingSent();
+});
+
+it("passes on the ERP's own statuses, in the detail and then in the list", function () {
+    [$user, , $order] = placedOrder();
+    Http::fake(['erp.test/*' => Http::response(erpSale())]);
+
+    $this->actingAs($user, 'api')->getJson('/api/orders')
+        ->assertJsonPath('data.0.erp_status', null);
+
+    $this->actingAs($user, 'api')->getJson("/api/orders/{$order->id}")
+        ->assertJsonPath('erp_status', 'final')
+        ->assertJsonPath('erp_shipping_status', 'shipped')
+        ->assertJsonPath('erp_payment_status', 'partial')
+        ->assertJsonPath('payment_status', 'due');
+
+    $this->actingAs($user, 'api')->getJson('/api/orders')
+        ->assertJsonPath('data.0.erp_status', 'final')
+        ->assertJsonPath('data.0.erp_shipping_status', 'shipped')
+        ->assertJsonPath('data.0.erp_payment_status', 'partial');
+});
+
+it('stores the raw statuses the ERP status sync sends, and keeps them when an older ERP omits them', function () {
+    config(['services.erp.internal_key' => 'test-key']);
+    [, , $order] = placedOrder();
+
+    $this->withHeader('X-Internal-Key', 'test-key')->postJson('/internal/orders/status/sync', ['orders' => [
+        ['erp_order_id' => 501, 'status' => 'processing', 'payment_status' => 'due', 'erp_status' => 'final', 'erp_shipping_status' => 'packed', 'erp_payment_status' => 'partial'],
+    ]])->assertOk()->assertJsonPath('errors', []);
+
+    $order->refresh();
+    expect([$order->status, $order->erp_status, $order->erp_shipping_status, $order->erp_payment_status])
+        ->toBe(['processing', 'final', 'packed', 'partial']);
+
+    $this->withHeader('X-Internal-Key', 'test-key')->postJson('/internal/orders/status/sync', ['orders' => [
+        ['erp_order_id' => 501, 'status' => 'shipped', 'payment_status' => 'paid'],
+    ]])->assertOk();
+
+    $order->refresh();
+    expect([$order->status, $order->payment_status, $order->erp_shipping_status])->toBe(['shipped', 'paid', 'packed']);
 });

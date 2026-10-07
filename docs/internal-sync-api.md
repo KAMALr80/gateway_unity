@@ -423,6 +423,9 @@ Pushes order status and payment status updates from ERP back to Gateway. Lookup 
 | `orders[].erp_order_id` | integer | Yes | The ERP order ID. Must match a Gateway order with this `erp_order_id`. |
 | `orders[].status` | string | Yes | Customer-facing order status. Expected values: `pending`, `processing`, `shipped`, `delivered`, `cancelled`. |
 | `orders[].payment_status` | string | No | Payment status. Expected values: `due`, `paid`, `refunded`. If omitted, `payment_status` is set to `null`. |
+| `orders[].erp_status` | string\|null | No | The ERP's sale status, unmapped: `draft`, `final`, `quotation`. Stored only when sent. |
+| `orders[].erp_shipping_status` | string\|null | No | `ordered`, `packed`, `shipped`, `delivered`, `cancelled`. Stored only when sent. |
+| `orders[].erp_payment_status` | string\|null | No | `due`, `partial`, `paid`. Stored only when sent. |
 
 #### Response
 

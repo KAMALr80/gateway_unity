@@ -16,6 +16,9 @@ class OrderStatusSyncController extends Controller
             'orders.*.erp_order_id'   => ['required', 'integer'],
             'orders.*.status'         => ['required', 'string'],
             'orders.*.payment_status' => ['sometimes', 'string'],
+            'orders.*.erp_status'          => ['sometimes', 'nullable', 'string', 'max:20'],
+            'orders.*.erp_shipping_status' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'orders.*.erp_payment_status'  => ['sometimes', 'nullable', 'string', 'max:20'],
         ]);
 
         $synced = 0;
@@ -23,11 +26,15 @@ class OrderStatusSyncController extends Controller
 
         foreach ($request->orders as $data) {
             try {
+                // The ERP's raw statuses only when sent, so an ERP that doesn't
+                // send them yet can't blank them.
+                $raw = array_intersect_key($data, array_flip(['erp_status', 'erp_shipping_status', 'erp_payment_status']));
+
                 $updated = Order::where('erp_order_id', $data['erp_order_id'])
                     ->update([
                         'status'         => $data['status'],
                         'payment_status' => $data['payment_status'] ?? null,
-                    ]);
+                    ] + $raw);
 
                 if (!$updated) {
                     $errors[] = [

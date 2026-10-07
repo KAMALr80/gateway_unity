@@ -175,7 +175,7 @@ class OrderController extends Controller
                 'status'         => $live['status'] ?? $order->status,
                 'payment_status' => $live['payment_status'] ?? $order->payment_status,
                 'total'          => $live['total'] ?? $order->total,
-            ]);
+            ] + array_intersect_key($live, array_flip(['erp_status', 'erp_shipping_status', 'erp_payment_status'])));
 
             return response()->json($this->formatErpOrder($order, $live));
         }
@@ -246,6 +246,10 @@ class OrderController extends Controller
             'invoice_no'     => $order->invoice_no,
             'status'         => $order->status,
             'payment_status' => $order->payment_status,
+            // The ERP's own statuses, unmapped; null until the order is in the ERP.
+            'erp_status'          => $order->erp_status,
+            'erp_shipping_status' => $order->erp_shipping_status,
+            'erp_payment_status'  => $order->erp_payment_status,
             'sync_status'    => $order->sync_status,
             'currency'       => $order->currency,
             'total'          => $order->total,

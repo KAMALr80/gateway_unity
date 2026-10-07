@@ -1349,6 +1349,17 @@ Returns full detail for a single order belonging to the authenticated user, incl
 | `amount_paid` | string\|null | Payments received, refunds taken off. |
 | `amount_due` | string\|null | `total` − `amount_paid`. |
 
+**The ERP's own statuses**, in `GET /api/orders` and here, unmapped, so the app can decide what to show. They're `null` until the order is in the ERP; `status` and `payment_status` stay, as the gateway's simplified version of the same.
+
+| Field | Values |
+|---|---|
+| `erp_status` | `draft` (received, not yet invoiced), `final` (invoiced), `quotation` |
+| `erp_shipping_status` | `ordered`, `packed`, `shipped`, `delivered`, `cancelled`, or `null` |
+| `erp_payment_status` | `due`, `partial`, `paid` |
+| `sync_status` | The gateway's: `pending`, `syncing`, `synced` (in the ERP), `failed` |
+
+The detail is always live. The list is refreshed by the ERP every 5 minutes and whenever an order's detail is opened.
+
 In both cases each item carries `product_id` (the catalog product, `null` for an ERP line not in the catalog) and `image`, so an order can be bought again. `status`, `payment_status` and `total` from the ERP are also saved, so `GET /api/orders` matches.
 
 **Auth required:** Yes + approved account

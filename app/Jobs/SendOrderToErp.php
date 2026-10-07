@@ -36,11 +36,17 @@ class SendOrderToErp implements ShouldQueue
         $erpService->sendOrder($this->order);
     }
 
+    /**
+     * The last try failed. The order goes back to 'pending' (never left in
+     * 'syncing') so orders:resend-stuck picks it up later; only a refusal by
+     * the ERP (422, handled in ErpOrderService) marks it 'failed'.
+     */
     public function failed(\Throwable $e): void
     {
-        $this->order->update([
-            'sync_status' => 'failed',
-            'sync_error'  => $e->getMessage(),
-        ]);
+        $this->order->refresh();
+
+        if ($this->order->sync_status === 'syncing') {
+            $this->order->update(['sync_status' => 'pending', 'sync_error' => $e->getMessage()]);
+        }
     }
 }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Order;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ErpOrderService
 {
@@ -17,6 +18,15 @@ class ErpOrderService
         $this->secret     = config('services.erp.webhook_secret');
     }
 
+    /**
+     * Returns true once the ERP has the order, false when the ERP refused it
+     * for good (422: it can't map the order; marked failed, not retried).
+     *
+     * Anything worth another try (no connection, a timeout, 5xx, or 401 while
+     * the ERP's secret is being fixed) throws, so SendOrderToErp's tries and
+     * backoff apply. A retry after a timeout is safe: the ERP matches
+     * order_key and returns the sale it already made.
+     */
     public function sendOrder(Order $order): bool
     {
         $payload   = $this->buildPayload($order);
@@ -29,27 +39,35 @@ class ErpOrderService
             ])
             ->timeout(30)
             ->post($this->webhookUrl, $payload);
-
-            if ($response->successful()) {
-                $body = $response->json();
-
-                $order->update([
-                    'sync_status'  => 'synced',
-                    'erp_order_id' => $body['erp_order_id'] ?? null,
-                    'synced_at'    => now(),
-                    'sync_error'   => null,
-                ]);
-
-                return true;
-            }
-
-            $this->markFailed($order, "ERP returned HTTP {$response->status()}: {$response->body()}");
-            return false;
-
         } catch (\Throwable $e) {
-            $this->markFailed($order, $e->getMessage());
+            $this->recordFailedAttempt($order, $e->getMessage());
+            throw $e;
+        }
+
+        if ($response->successful()) {
+            $body = $response->json();
+
+            $order->update([
+                'sync_status'          => 'synced',
+                'erp_order_id'         => $body['erp_order_id'] ?? null,
+                'sync_attempts'        => $order->sync_attempts + 1,
+                'last_sync_attempt_at' => now(),
+                'synced_at'            => now(),
+                'sync_error'           => null,
+            ]);
+
+            return true;
+        }
+
+        $error = "ERP returned HTTP {$response->status()}: " . Str::limit($response->body(), 500);
+
+        if ($response->status() === 422) {
+            $this->recordFailedAttempt($order, $error, 'failed');
             return false;
         }
+
+        $this->recordFailedAttempt($order, $error);
+        throw new \RuntimeException($error);
     }
 
     private function buildPayload(Order $order): array
@@ -111,7 +129,8 @@ class ErpOrderService
         return hash_hmac('sha256', json_encode($payload), $this->secret);
     }
 
-    private function markFailed(Order $order, string $error): void
+    /** 'pending' keeps the order in line for another try; 'failed' ends it. */
+    private function recordFailedAttempt(Order $order, string $error, string $status = 'pending'): void
     {
         Log::error('ERP order sync failed', [
             'order_id' => $order->id,
@@ -120,7 +139,7 @@ class ErpOrderService
         ]);
 
         $order->update([
-            'sync_status'           => $order->sync_attempts + 1 >= 3 ? 'failed' : 'pending',
+            'sync_status'           => $status,
             'sync_attempts'         => $order->sync_attempts + 1,
             'last_sync_attempt_at'  => now(),
             'sync_error'            => $error,

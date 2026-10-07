@@ -36,7 +36,7 @@ class ProductController extends Controller
             ]),
             ['prices' => $showPrices ? '1' : '0'],
             // A scoped user gets cache entries of their own, never the shared ones.
-            ['scope' => $scope === null ? '' : implode(',', $scope)]
+            ['scope' => CatalogScope::fingerprint($scope)]
         )));
 
         $cached = $this->cache->getProductList($fingerprint);
@@ -163,7 +163,7 @@ class ProductController extends Controller
         // Checked before the cache: the cached detail is shared by everyone.
         $scope = CatalogScope::ids();
         if ($scope !== null) {
-            $product = Product::find($id, ['id', 'category_id', 'sub_category_id']);
+            $product = Product::find($id, ['id', 'parent_id', 'category_id', 'sub_category_id']);
             abort_if(! $product || ! CatalogScope::allowsProduct($product, $scope), 404);
         }
 

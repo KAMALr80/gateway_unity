@@ -32,6 +32,7 @@ class User extends Authenticatable implements JWTSubject
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
             'is_admin' => 'boolean',
+            'catalog_hidden_product_ids' => 'array',
         ];
     }
 

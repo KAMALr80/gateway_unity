@@ -106,3 +106,32 @@ it('keeps the wishlist and checkout inside the category', function () {
     fresh($this, $token)->postJson('/api/orders', $order($this->pipeBag))->assertStatus(422);
     fresh($this, $token)->postJson('/api/orders', $order($this->bag))->assertCreated();
 });
+
+it('hides chosen products, and their variations, from the scoped user only', function () {
+    Queue::fake();
+    $pipe  = Product::create(['name' => 'METAL PIPE 100CT', 'type' => 'grouped', 'regular_price' => 5, 'is_active' => true, 'in_stock' => true, 'category_id' => $this->bags->id]);
+    $glass = Product::create(['name' => 'METAL PIPE 100CT - GLASS', 'type' => 'variable', 'parent_id' => $pipe->id, 'regular_price' => 5, 'is_active' => true, 'in_stock' => true, 'category_id' => $this->bags->id]);
+    $this->reviewer->forceFill(['catalog_hidden_product_ids' => [$pipe->id, $this->paperBag->id]])->save();
+
+    $reviewer = ($this->tokenFor)($this->reviewer);
+    $customer = ($this->tokenFor)($this->customer);
+    $names    = fn ($response) => collect($response->json('data'))->pluck('name')->sort()->values()->all();
+
+    expect($names(fresh($this, $reviewer)->getJson('/api/products')))->toBe(['SHOPPING BAG LARGE']);
+    expect($names(fresh($this, $reviewer)->getJson('/api/products?search=PIPE&include_children=1')))->toBe([]);
+    foreach ([$pipe, $glass, $this->paperBag] as $hidden) {
+        fresh($this, $reviewer)->getJson("/api/products/{$hidden->id}")->assertNotFound();
+    }
+    fresh($this, $reviewer)->postJson('/api/wishlist', ['product_id' => $this->paperBag->id])->assertNotFound();
+
+    $address = ['first_name' => 'App', 'last_name' => 'Review', 'address_1' => '1 Main St', 'city' => 'Centerville', 'postcode' => '31028', 'country' => 'US'];
+    $order = array_merge(
+        ['items' => [['product_id' => $glass->id, 'quantity' => 1]], 'billing_email' => 'review@example.com', 'billing_phone' => '4785550100'],
+        collect($address)->mapWithKeys(fn ($v, $k) => ["billing_{$k}" => $v, "shipping_{$k}" => $v])->all()
+    );
+    fresh($this, $reviewer)->postJson('/api/orders', $order)->assertStatus(422);
+
+    // Everyone else still sees them.
+    expect($names(fresh($this, $customer)->getJson('/api/products')))->toContain('METAL PIPE 100CT', 'PAPER BAG SMALL');
+    fresh($this, $customer)->getJson("/api/products/{$pipe->id}")->assertOk();
+});

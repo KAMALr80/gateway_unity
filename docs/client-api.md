@@ -42,7 +42,7 @@ Most write routes and all user-specific routes require a JWT bearer token obtain
 
 ### Catalog-limited accounts
 
-An account can be limited to one category and its sub-categories, e.g. an App Store review account (`users.catalog_category_id`, set by an admin). For such an account, product lists and search, product detail (404 outside the category), the category tree, brands, the wishlist and checkout only ever include that category. Nothing changes for other accounts.
+An account can be limited to one category and its sub-categories, e.g. an App Store review account (`users.catalog_category_id`, set by an admin). For such an account, product lists and search, product detail (404 outside the category), the category tree, brands, the wishlist and checkout only ever include that category. Such an account can also have individual products hidden within its category (`users.catalog_hidden_product_ids`); hiding a group hides its variations too. Nothing changes for other accounts.
 
 ### Account Approval and Price Visibility
 

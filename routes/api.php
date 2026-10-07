@@ -46,6 +46,7 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/users/me',             [UserController::class, 'me']);
     Route::patch('/users/{id}',         [UserController::class, 'update']);
     Route::patch('/users/me/password',  [UserController::class, 'changePassword']);
+    Route::delete('/users/me',          [UserController::class, 'destroyMe']);
 
     // Orders — require approval in addition to authentication
     Route::middleware('require.approved')->group(function () {

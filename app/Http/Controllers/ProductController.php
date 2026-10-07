@@ -201,6 +201,7 @@ class ProductController extends Controller
             'id'             => $product->id,
             'name'           => $product->name,
             'slug'           => $product->slug,
+            'website_url'    => $product->website_url,
             'type'           => $product->type,
             'sku'            => $product->sku,
             'regular_price'  => $showPrices ? $product->regular_price  : null,

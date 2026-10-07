@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
+use App\Models\DeletedAccount;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,8 @@ class AuthController extends Controller
             'password'        => $request->password,
             'approval_status' => 'pending',
         ]);
+
+        DeletedAccount::forget($request->email);
 
         return response()->json([
             'message' => 'Registration successful. Your account is pending approval before you can log in.',

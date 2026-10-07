@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Internal;
 
 use App\Http\Controllers\Controller;
+use App\Models\DeletedAccount;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,12 @@ class ContactSyncController extends Controller
         $errors = [];
 
         foreach ($request->contacts as $data) {
+            // The customer deleted their app account; the ERP still knows them,
+            // but the account stays deleted until they sign up again.
+            if (DeletedAccount::isDeleted($data['email'])) {
+                continue;
+            }
+
             try {
                 $existing = User::where('email', $data['email'])->first();
 

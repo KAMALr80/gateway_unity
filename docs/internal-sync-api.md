@@ -293,6 +293,7 @@ Groups are modelled as a parent product with `type = "grouped"` and a string ERP
 | `products[].in_stock` | boolean | No | Stock availability flag. Defaults to `true`. |
 | `products[].is_active` | boolean | No | Whether product is visible in the catalog. Defaults to `true`. |
 | `products[].attributes` | object\|null | No | Arbitrary key-value pairs stored as JSON (e.g. color, size, material). |
+| `products[].website_url` | string\|null | No | The product's page on the storefront, max 500 characters. Returned to the app as `website_url` for share links. Omitted or `null` clears it. |
 | `products[].images` | array | No | Image set for this product. If provided, **replaces all existing images**. |
 | `products[].images[].url` | string | Required if `images` present | Image URL. |
 | `products[].images[].alt` | string | No | Alt text. Defaults to the product name. |
@@ -389,6 +390,7 @@ Upserts customer/user accounts. Existing users are matched by email. New users a
 #### Behavior Notes
 
 - Match key: `email`
+- **Deleted accounts:** a contact whose email belongs to an account the user deleted in the app is skipped, without an error, until they register again
 - **Existing user:** `name`, `phone`, `address`, and `erp_contact_id` are updated. `password` is **never overwritten**
 - **New user:** created with `name`, `email`, `phone`, `address`, `erp_contact_id`, and a random 32-character hashed password. The user must go through the forgot-password flow to set their own password before logging in
 - No cache invalidation — users are not cached

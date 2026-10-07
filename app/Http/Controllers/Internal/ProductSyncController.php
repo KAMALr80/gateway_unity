@@ -24,6 +24,7 @@ class ProductSyncController extends Controller
             'products.*.name'                => ['required', 'string'],
             'products.*.regular_price'       => ['required', 'numeric'],
             'products.*.is_active'           => ['sometimes', 'boolean'],
+            'products.*.website_url'         => ['sometimes', 'nullable', 'string', 'max:500'],
             'products.*.images'              => ['sometimes', 'array'],
             'products.*.images.*.url'        => ['required_with:products.*.images', 'string'],
             'products.*.images.*.is_primary' => ['sometimes', 'boolean'],
@@ -74,6 +75,7 @@ class ProductSyncController extends Controller
                         'in_stock'         => $data['in_stock']          ?? true,
                         'is_active'        => $data['is_active']         ?? true,
                         'attributes'       => $data['attributes']        ?? null,
+                        'website_url'      => $data['website_url']       ?? null,
                         'synced_at'        => now(),
                     ]
                 );

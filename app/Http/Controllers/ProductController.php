@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Services\CacheService;
+use App\Support\CatalogScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,6 +15,7 @@ class ProductController extends Controller
     public function index(Request $request): JsonResponse
     {
         $showPrices = $this->canSeePrices();
+        $scope      = CatalogScope::ids();
 
         // Build a fingerprint from query params so each
         // unique filter combination has its own cache entry.
@@ -32,7 +34,9 @@ class ProductController extends Controller
                 'page',
                 'ids',
             ]),
-            ['prices' => $showPrices ? '1' : '0']
+            ['prices' => $showPrices ? '1' : '0'],
+            // A scoped user gets cache entries of their own, never the shared ones.
+            ['scope' => $scope === null ? '' : implode(',', $scope)]
         )));
 
         $cached = $this->cache->getProductList($fingerprint);
@@ -44,6 +48,10 @@ class ProductController extends Controller
         $query = Product::query()
             ->with(['category', 'subCategory', 'brand', 'primaryImage'])
             ->where('is_active', true);
+
+        if ($scope !== null) {
+            CatalogScope::restrictProducts($query, $scope);
+        }
 
         // Filters
         if ($request->filled('category_id')) {
@@ -151,6 +159,13 @@ class ProductController extends Controller
     {
         $showPrices   = $this->canSeePrices();
         $withSiblings = filter_var($request->input('with_siblings', false), FILTER_VALIDATE_BOOLEAN);
+
+        // Checked before the cache: the cached detail is shared by everyone.
+        $scope = CatalogScope::ids();
+        if ($scope !== null) {
+            $product = Product::find($id, ['id', 'category_id', 'sub_category_id']);
+            abort_if(! $product || ! CatalogScope::allowsProduct($product, $scope), 404);
+        }
 
         $cacheKey = $id . ($withSiblings ? ':siblings' : '') . ($showPrices ? ':p' : ':np');
         $cached   = $this->cache->getProduct($cacheKey);

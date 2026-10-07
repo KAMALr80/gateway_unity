@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Services\ErpOrderService;
 use App\Services\SequenceService;
+use App\Support\CatalogScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,11 +41,16 @@ class OrderController extends Controller
 
         // Resolve products and calculate totals
         $productIds = collect($data['items'])->pluck('product_id');
-        $products   = Product::whereIn('id', $productIds)
+        $productQuery = Product::whereIn('id', $productIds)
             ->where('is_active', true)
-            ->where('in_stock', true)
-            ->get()
-            ->keyBy('id');
+            ->where('in_stock', true);
+
+        // A user limited to part of the catalog can't order outside it.
+        if (($scope = CatalogScope::ids()) !== null) {
+            CatalogScope::restrictProducts($productQuery, $scope);
+        }
+
+        $products = $productQuery->get()->keyBy('id');
 
         // Validate all requested products exist and are available
         foreach ($data['items'] as $item) {

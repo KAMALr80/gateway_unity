@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\WishlistItem;
+use App\Support\CatalogScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,6 +17,7 @@ class WishlistController extends Controller
             ->latest()
             ->get()
             ->filter(fn($item) => $item->product !== null)
+            ->filter(fn($item) => ($scope = CatalogScope::ids()) === null || CatalogScope::allowsProduct($item->product, $scope))
             ->map(fn($item) => [
                 'id'         => $item->id,
                 'added_at'   => $item->created_at->toIso8601String(),
@@ -39,9 +41,11 @@ class WishlistController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
         ]);
 
-        $product = Product::where('id', $request->product_id)
-            ->where('is_active', true)
-            ->firstOrFail();
+        $query = Product::where('id', $request->product_id)->where('is_active', true);
+        if (($scope = CatalogScope::ids()) !== null) {
+            CatalogScope::restrictProducts($query, $scope);
+        }
+        $product = $query->firstOrFail();
 
         $item = WishlistItem::firstOrCreate([
             'user_id'    => auth('api')->id(),

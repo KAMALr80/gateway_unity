@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Services\CacheService;
+use App\Support\CatalogScope;
 use Illuminate\Http\JsonResponse;
 
 class CategoryController extends Controller
@@ -15,7 +16,7 @@ class CategoryController extends Controller
         $cached = $this->cache->getCategories();
 
         if ($cached) {
-            return response()->json($cached);
+            return response()->json($this->scoped($cached));
         }
 
         $categories = Category::query()
@@ -31,11 +32,39 @@ class CategoryController extends Controller
 
         $this->cache->putCategories($data);
 
-        return response()->json($data);
+        return response()->json($this->scoped($data));
+    }
+
+    /**
+     * The tree a scoped user may see: their category and its sub-categories.
+     * Filtered on the way out, so the shared cached tree stays whole.
+     */
+    private function scoped(array $data): array
+    {
+        $scope = CatalogScope::ids();
+        if ($scope === null) {
+            return $data;
+        }
+
+        $data['data'] = collect($data['data'])
+            ->map(function (array $category) use ($scope) {
+                $category['children'] = collect($category['children'])
+                    ->filter(fn (array $child) => in_array($child['id'], $scope))
+                    ->values()->all();
+
+                return $category;
+            })
+            ->filter(fn (array $category) => in_array($category['id'], $scope) || ! empty($category['children']))
+            ->values()->all();
+
+        return $data;
     }
 
     public function show(int $id): JsonResponse
     {
+        $scope = CatalogScope::ids();
+        abort_if($scope !== null && ! in_array($id, $scope), 404);
+
         $cached = $this->cache->getCategory($id);
 
         if ($cached) {

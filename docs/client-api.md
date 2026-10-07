@@ -40,6 +40,10 @@ Most write routes and all user-specific routes require a JWT bearer token obtain
 
 **Token lifetime** is configured via `JWT_TTL` (default 1440 minutes / 24 hours). Tokens can be refreshed within the `JWT_REFRESH_TTL` window (default 20160 minutes / 14 days) using `POST /api/auth/refresh`.
 
+### Catalog-limited accounts
+
+An account can be limited to one category and its sub-categories, e.g. an App Store review account (`users.catalog_category_id`, set by an admin). For such an account, product lists and search, product detail (404 outside the category), the category tree, brands, the wishlist and checkout only ever include that category. Nothing changes for other accounts.
+
 ### Account Approval and Price Visibility
 
 Accounts created via `POST /api/auth/register` start with `approval_status = pending`. An administrator must approve the account before the user can see product prices or place orders.

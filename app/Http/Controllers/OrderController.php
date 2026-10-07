@@ -6,6 +6,7 @@ use App\Http\Requests\OrderRequest;
 use App\Jobs\SendOrderToErp;
 use App\Models\Order;
 use App\Models\Product;
+use App\Services\ErpOrderService;
 use App\Services\SequenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -154,13 +155,88 @@ class OrderController extends Controller
         }
     }
 
-    public function show(int $id): JsonResponse
+    /**
+     * An order the ERP has is shown as the ERP has it now: staff may have
+     * changed lines, prices or shipping since it was placed, and payments are
+     * recorded there. If the ERP can't be reached, the gateway's copy is shown
+     * instead. "source" says which: "erp" or "gateway".
+     */
+    public function show(int $id, ErpOrderService $erp): JsonResponse
     {
-        $order = Order::with('items')
+        $order = Order::with('items.product.primaryImage')
             ->where('user_id', auth('api')->id())
             ->findOrFail($id);
 
-        return response()->json($this->formatOrder($order, detailed: true));
+        $live = $order->erp_order_id ? $erp->fetchOrder($order) : null;
+
+        if ($live) {
+            // Keep the list (index) in step with what the detail now shows.
+            $order->update([
+                'status'         => $live['status'] ?? $order->status,
+                'payment_status' => $live['payment_status'] ?? $order->payment_status,
+                'total'          => $live['total'] ?? $order->total,
+            ]);
+
+            return response()->json($this->formatErpOrder($order, $live));
+        }
+
+        return response()->json($this->formatOrder($order, detailed: true) + ['source' => 'gateway']);
+    }
+
+    /**
+     * The ERP's sale in the same shape as formatOrder(), plus what only the
+     * ERP knows: its invoice number, the due date from the customer's pay
+     * term, and what's been paid. Items are linked back to the catalog by
+     * their ERP product id, for "buy again" and images.
+     */
+    private function formatErpOrder(Order $order, array $live): array
+    {
+        $base  = $this->formatOrder($order, detailed: true);
+        $money = fn ($value) => $value === null ? null : number_format((float) $value, 2, '.', '');
+        $count = fn ($value) => floor((float) $value) == (float) $value ? (int) $value : (float) $value;
+
+        $products = Product::with('primaryImage')
+            ->whereIn('erp_product_id', collect($live['items'])->pluck('erp_product_id')->filter()->unique())
+            ->get()
+            ->keyBy('erp_product_id');
+
+        $address = fn (?array $fromErp, array $ours) => $fromErp
+            ? array_merge($ours, array_filter($fromErp, fn ($value) => $value !== null))
+            : $ours;
+
+        return array_merge($base, [
+            'status'           => $live['status'] ?? $base['status'],
+            'payment_status'   => $live['payment_status'] ?? $base['payment_status'],
+            'transaction_date' => $live['transaction_date'] ?? $base['transaction_date'],
+            'line_total'       => $money($live['line_total'] ?? $base['line_total']),
+            'discount_total'   => $money($live['discount_total'] ?? $base['discount_total']),
+            'shipping_total'   => $money($live['shipping_total'] ?? $base['shipping_total']),
+            'total_tax'        => $money($live['total_tax'] ?? $base['total_tax']),
+            'total'            => $money($live['total'] ?? $base['total']),
+            'customer_note'    => $live['customer_note'] ?? $base['customer_note'],
+            'billing'          => $address($live['billing'] ?? null, $base['billing']),
+            'shipping'         => $address($live['shipping'] ?? null, $base['shipping']),
+            'items'            => collect($live['items'])->map(function (array $item) use ($products, $money, $count) {
+                $product = $products->get($item['erp_product_id'] ?? null);
+
+                return [
+                    'id'         => $item['id'] ?? null,
+                    'product_id' => $product?->id,
+                    'image'      => $product?->primaryImage?->public_url,
+                    'name'       => $item['name'] ?? $product?->name,
+                    'sku'        => $item['sku'] ?? null,
+                    'quantity'   => $count($item['quantity'] ?? 0),
+                    'unit_price' => $money($item['unit_price'] ?? 0),
+                    'unit_tax'   => $money($item['unit_tax'] ?? 0),
+                    'total'      => $money($item['total'] ?? 0),
+                ];
+            })->values()->all(),
+            'erp_invoice_no'   => $live['invoice_no'] ?? null,
+            'due_date'         => $live['due_date'] ?? null,
+            'amount_paid'      => $money($live['amount_paid'] ?? null),
+            'amount_due'       => $money($live['amount_due'] ?? null),
+            'source'           => 'erp',
+        ]);
     }
 
     private function formatOrder(Order $order, bool $detailed = false): array
@@ -208,6 +284,8 @@ class OrderController extends Controller
             ];
             $data['items']           = $order->items->map(fn($item) => [
                 'id'         => $item->id,
+                'product_id' => $item->product_id,
+                'image'      => $item->product?->primaryImage?->public_url,
                 'name'       => $item->name,
                 'sku'        => $item->sku,
                 'quantity'   => $item->quantity,

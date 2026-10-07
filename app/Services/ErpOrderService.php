@@ -14,8 +14,9 @@ class ErpOrderService
 
     public function __construct()
     {
-        $this->webhookUrl = config('services.erp.order_webhook_url');
-        $this->secret     = config('services.erp.webhook_secret');
+        // Cast: an unset key must not stop every order screen from loading.
+        $this->webhookUrl = (string) config('services.erp.order_webhook_url');
+        $this->secret     = (string) config('services.erp.webhook_secret');
     }
 
     /**
@@ -68,6 +69,45 @@ class ErpOrderService
 
         $this->recordFailedAttempt($order, $error);
         throw new \RuntimeException($error);
+    }
+
+    /**
+     * The order as the ERP has it now (edited by staff, paid, shipped...), or
+     * null when the ERP can't be reached or doesn't know it. A short timeout:
+     * the app is waiting on this.
+     *
+     * GET {ERP_ORDER_WEBHOOK_URL}/{erp_order_id}?order_key=... A GET has no
+     * body to sign, so the signature covers "{timestamp}\n{id}\n{order_key}";
+     * the ERP accepts it for five minutes.
+     */
+    public function fetchOrder(Order $order): ?array
+    {
+        if (empty($order->erp_order_id) || empty($order->order_key) || $this->webhookUrl === '') {
+            return null;
+        }
+
+        $timestamp = (string) time();
+        $signature = hash_hmac('sha256', $timestamp . "\n" . $order->erp_order_id . "\n" . $order->order_key, $this->secret);
+
+        try {
+            $response = Http::withHeaders([
+                'X-Webhook-Timestamp' => $timestamp,
+                'X-Webhook-Secret'    => $signature,
+            ])
+            ->acceptJson()
+            ->timeout(8)
+            ->get(rtrim($this->webhookUrl, '/') . '/' . $order->erp_order_id, ['order_key' => $order->order_key]);
+        } catch (\Throwable $e) {
+            Log::warning('ERP order read failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            return null;
+        }
+
+        if (!$response->successful() || !is_array($response->json('items'))) {
+            Log::warning('ERP order read failed', ['order_id' => $order->id, 'status' => $response->status()]);
+            return null;
+        }
+
+        return $response->json();
     }
 
     private function buildPayload(Order $order): array

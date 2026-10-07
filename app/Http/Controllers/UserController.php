@@ -5,9 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\UpdateUserRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Models\DeletedAccount;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
@@ -52,35 +51,26 @@ class UserController extends Controller
     }
 
     /**
-     * Deletes the signed-in account (App Store requirement for apps with sign-up).
-     *
-     * Addresses and wishlist go with it; orders stay, detached from the user,
-     * because they are business records. The email is remembered as a hash so
-     * the ERP's contact sync does not recreate the account.
+     * Account deletion, for now a placeholder: it always answers success and
+     * ends the session, so the app signs the user out, but nothing is deleted.
+     * How a deletion should reach the ERP (the customer, their orders and
+     * invoices) isn't decided yet, so each request is logged to be acted on
+     * by hand. The real deletion (DeletedAccount keeps the ERP contact sync
+     * from recreating an account) is in commit 9c5be45.
      */
     public function destroyMe(Request $request): JsonResponse
     {
-        $request->validate(['password' => ['required', 'string']]);
-
         $user = auth('api')->user();
 
-        // 422, not 401/403: the app reads 401 as an expired session and 403 as
-        // pending approval.
-        if (!Hash::check($request->password, $user->password)) {
-            return response()->json([
-                'message' => 'The password is incorrect.',
-                'errors'  => ['password' => ['The password is incorrect.']],
-            ], 422);
-        }
-
-        DB::transaction(function () use ($user) {
-            DeletedAccount::remember($user->email);
-            $user->delete();
-        });
+        Log::notice('Account deletion requested (not deleted yet)', [
+            'user_id'        => $user->id,
+            'email'          => $user->email,
+            'erp_contact_id' => $user->erp_contact_id,
+        ]);
 
         auth('api')->logout();
 
-        return response()->json(['message' => 'Your account has been deleted.']);
+        return response()->json(['message' => 'Your account deletion request has been received.']);
     }
 
     public function changePassword(Request $request): JsonResponse

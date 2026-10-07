@@ -1,12 +1,11 @@
 <?php
 
 use App\Models\DeletedAccount;
-use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Log;
 
 uses(RefreshDatabase::class);
 
@@ -17,64 +16,51 @@ function accountWithToken(array $attributes = []): array
     return [$user, auth('api')->login($user)];
 }
 
-it('deletes the account, keeps its orders detached and stops the token working', function () {
-    Queue::fake();
+// DELETE /api/users/me is a placeholder for now: success and sign-out, nothing deleted.
+
+it('answers success and signs the user out, whatever the password', function (array $body) {
     [$user, $token] = accountWithToken();
-    $product = Product::create(['name' => 'Cable', 'regular_price' => 5, 'is_active' => true, 'in_stock' => true]);
-    DB::table('wishlist_items')->insert(['user_id' => $user->id, 'product_id' => $product->id, 'created_at' => now(), 'updated_at' => now()]);
 
-    $address = ['first_name' => 'Jane', 'last_name' => 'Doe', 'address_1' => '1 Main St', 'city' => 'Centerville', 'postcode' => '31028', 'country' => 'US'];
-    $order = ['items' => [['product_id' => $product->id, 'quantity' => 1]], 'billing_email' => 'jane@example.com', 'billing_phone' => '4785550100'];
-    foreach ($address as $field => $value) {
-        $order["billing_{$field}"] = $order["shipping_{$field}"] = $value;
-    }
-    $orderId = $this->withToken($token)->postJson('/api/orders', $order)->assertCreated()->json('data.id') ?? Order::value('id');
-
-    $this->withToken($token)->deleteJson('/api/users/me', ['password' => 'secret-pass'])->assertOk();
-
-    expect(User::find($user->id))->toBeNull()
-        ->and(DB::table('wishlist_items')->where('user_id', $user->id)->exists())->toBeFalse()
-        ->and(Order::find($orderId))->not->toBeNull()
-        ->and(Order::find($orderId)->user_id)->toBeNull()
-        ->and(DeletedAccount::isDeleted($user->email))->toBeTrue();
+    $this->withToken($token)->deleteJson('/api/users/me', $body)->assertOk();
 
     app('auth')->forgetGuards();
     $this->withToken($token)->getJson('/api/users/me')->assertUnauthorized();
-});
-
-it('deletes an account that has no orders', function () {
-    [$user, $token] = accountWithToken();
-
-    $this->withToken($token)->deleteJson('/api/users/me', ['password' => 'secret-pass'])->assertOk();
-
-    expect(User::find($user->id))->toBeNull();
-});
-
-it('refuses a wrong or missing password with 422, never 401 or 403', function (array $body) {
-    [$user, $token] = accountWithToken();
-
-    $this->withToken($token)->deleteJson('/api/users/me', $body)
-        ->assertStatus(422)
-        ->assertJsonValidationErrors('password');
-
-    expect(User::find($user->id))->not->toBeNull();
 })->with([
-    'wrong password'   => [['password' => 'nope']],
-    'missing password' => [[]],
+    'right password' => [['password' => 'secret-pass']],
+    'wrong password' => [['password' => 'nope']],
+    'no password'    => [[]],
 ]);
 
-it('lets a pending account delete itself', function () {
-    [$user, $token] = accountWithToken(['approval_status' => 'pending']);
+it('deletes nothing for now and logs the request', function () {
+    Log::spy();
+    [$user, $token] = accountWithToken(['erp_contact_id' => 301]);
+    $product = Product::create(['name' => 'Cable', 'regular_price' => 5, 'is_active' => true, 'in_stock' => true]);
+    DB::table('wishlist_items')->insert(['user_id' => $user->id, 'product_id' => $product->id, 'created_at' => now(), 'updated_at' => now()]);
 
     $this->withToken($token)->deleteJson('/api/users/me', ['password' => 'secret-pass'])->assertOk();
 
-    expect(User::find($user->id))->toBeNull();
+    expect(User::find($user->id))->not->toBeNull()
+        ->and(DB::table('wishlist_items')->where('user_id', $user->id)->exists())->toBeTrue()
+        ->and(DeletedAccount::isDeleted($user->email))->toBeFalse();
+
+    Log::shouldHaveReceived('notice')->withArgs(fn ($message, $context) => str_contains($message, 'Account deletion requested')
+        && $context['user_id'] === $user->id && $context['erp_contact_id'] === 301);
 });
 
+it('answers a pending account the same way', function () {
+    [, $token] = accountWithToken(['approval_status' => 'pending']);
+
+    $this->withToken($token)->deleteJson('/api/users/me')->assertOk();
+});
+
+it('still requires a signed-in user', function () {
+    $this->deleteJson('/api/users/me')->assertUnauthorized();
+});
+
+// Kept for when deletion is real: a deleted email stays deleted through the ERP contact sync.
 it('keeps a deleted account deleted when the ERP syncs the customer again, until they sign up again', function () {
     config(['services.erp.internal_key' => 'test-key']);
-    [$user, $token] = accountWithToken(['email' => 'Gone@Example.com']);
-    $this->withToken($token)->deleteJson('/api/users/me', ['password' => 'secret-pass'])->assertOk();
+    DeletedAccount::remember('Gone@Example.com');
 
     $contact = ['contacts' => [['erp_contact_id' => 301, 'email' => 'gone@example.com', 'name' => 'Gone']]];
     $this->withHeader('X-Internal-Key', 'test-key')->postJson('/internal/contacts/sync', $contact)->assertOk();

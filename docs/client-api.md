@@ -517,48 +517,18 @@ Changes the authenticated user's password. Requires the current password for ver
 
 ### DELETE /api/users/me
 
-Permanently deletes the signed-in account, as the App Store requires for apps that allow sign-up. Works for pending accounts too.
+**For now a placeholder.** Always answers `200` and ends the session (the token stops working, so the app signs the user out), but deletes nothing. Each request is logged, to be acted on by hand until it's decided how a deletion should reach the ERP.
 
 **Auth required:** Yes
 
-#### Request Body
+The app may send `{"password": "..."}`; it's ignored for now.
 
+**Response `200`:**
 ```json
 {
-  "password": "current-password"
+  "message": "Your account deletion request has been received."
 }
 ```
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `password` | string | Yes | The account's current password. |
-
-**Success response `200`:**
-```json
-{
-  "message": "Your account has been deleted."
-}
-```
-
-The token stops working immediately; any further call with it returns `401`.
-
-**Wrong or missing password response `422`:**
-```json
-{
-  "message": "The password is incorrect.",
-  "errors": {
-    "password": ["The password is incorrect."]
-  }
-}
-```
-
-It is `422` rather than `401` or `403` on purpose: the app treats `401` as an expired session and `403` as pending approval.
-
-#### Behavior Notes
-
-- Saved addresses and wishlist items are deleted with the account.
-- Orders are kept as business records, detached from the account.
-- The ERP's contact sync will not recreate the account. Registering again with the same email starts a new account.
 
 ---
 
@@ -1368,6 +1338,18 @@ total      = line_total - discount_total + shipping_total + total_tax
 ### GET /api/orders/{id}
 
 Returns full detail for a single order belonging to the authenticated user, including billing/shipping addresses and line items.
+
+**Once the order is in the ERP** (it has an `erp_order_id`), the details come live from the ERP on every call, because staff may have changed lines, prices or shipping and payments are recorded there. `"source": "erp"` marks such a response, and adds:
+
+| Field | Type | Description |
+|---|---|---|
+| `source` | string | `erp` (live) or `gateway` (the gateway's copy: not in the ERP yet, or the ERP couldn't be reached within 8 seconds). |
+| `erp_invoice_no` | string\|null | The ERP's invoice number. `invoice_no` stays the app's order number. |
+| `due_date` | string\|null | `YYYY-MM-DD`, from the customer's pay term in the ERP. |
+| `amount_paid` | string\|null | Payments received, refunds taken off. |
+| `amount_due` | string\|null | `total` − `amount_paid`. |
+
+In both cases each item carries `product_id` (the catalog product, `null` for an ERP line not in the catalog) and `image`, so an order can be bought again. `status`, `payment_status` and `total` from the ERP are also saved, so `GET /api/orders` matches.
 
 **Auth required:** Yes + approved account
 

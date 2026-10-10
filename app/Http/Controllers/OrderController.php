@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\OrderRequest;
 use App\Jobs\SendOrderToErp;
+use App\Models\CartItem;
 use App\Models\Order;
 use App\Models\Product;
 use App\Services\ErpOrderService;
@@ -11,6 +12,7 @@ use App\Services\SequenceService;
 use App\Support\CatalogScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -34,7 +36,45 @@ class OrderController extends Controller
         ]);
     }
 
+    /**
+     * An optional Idempotency-Key header makes placing an order safe to repeat: the storefront sends one key
+     * per checkout attempt, so a network retry, a second tab or a double submit returns the order that key
+     * already created instead of a new one. Without the header the request behaves as before.
+     */
     public function store(OrderRequest $request): JsonResponse
+    {
+        $key = $request->header('Idempotency-Key');
+        if ($key === null || $key === '') {
+            return $this->placeOrder($request);
+        }
+        if (! preg_match('/^[A-Za-z0-9_-]{8,100}$/', $key)) {
+            return response()->json(['message' => 'The Idempotency-Key header is invalid.'], 422);
+        }
+
+        $cacheKey = 'order-idempotency:'.auth('api')->id().':'.hash('sha256', $key);
+        $lock = Cache::lock($cacheKey.':lock', 30);
+        if (! $lock->get()) {
+            return response()->json(['message' => 'This order is already being placed. Please wait a moment.'], 409);
+        }
+
+        try {
+            $existing = ($id = Cache::get($cacheKey)) ? Order::where('user_id', auth('api')->id())->find($id) : null;
+            if ($existing) {
+                return response()->json(['message' => 'Order placed successfully', 'data' => $this->formatOrder($existing)], 201);
+            }
+
+            $response = $this->placeOrder($request);
+            if ($response->getStatusCode() === 201) {
+                Cache::put($cacheKey, $response->getData(true)['data']['id'], now()->addDay());
+            }
+
+            return $response;
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function placeOrder(OrderRequest $request): JsonResponse
     {
         $user = auth('api')->user();
         $data = $request->validated();
@@ -43,7 +83,9 @@ class OrderController extends Controller
         $productIds = collect($data['items'])->pluck('product_id');
         $productQuery = Product::whereIn('id', $productIds)
             ->where('is_active', true)
-            ->where('in_stock', true);
+            ->where('in_stock', true)
+            // A grouped product only picks a variation (as in the cart); it has no price of its own.
+            ->where('type', '!=', 'grouped');
 
         // A user limited to part of the catalog can't order outside it.
         if (($scope = CatalogScope::ids()) !== null) {
@@ -82,9 +124,12 @@ class OrderController extends Controller
             ];
         }
 
-        $discountTotal  = $data['discount_total']  ?? 0;
-        $shippingTotal  = $data['shipping_total']  ?? 0;
-        $totalTax       = $data['total_tax']        ?? 0;
+        // Totals are never taken from the client: the storefront has no discount, shipping or tax engine
+        // (shipping is quoted later and prices are net of tax), so these stay 0 until one exists server-side.
+        // Accepting client values here allowed a buyer to lower the order total.
+        $discountTotal  = 0;
+        $shippingTotal  = 0;
+        $totalTax       = 0;
         $total          = $lineTotal - $discountTotal + $shippingTotal + $totalTax;
 
         $sequence = app(SequenceService::class);
@@ -104,7 +149,7 @@ class OrderController extends Controller
                     'erp_customer_id'      => $user->erp_contact_id,
                     'status'               => 'pending',
                     'payment_status'       => 'due',
-                    'currency'             => $data['currency']       ?? 'USD',
+                    'currency'             => 'USD', // catalog prices are USD
                     'line_total'           => $lineTotal,
                     'discount_total'       => $discountTotal,
                     'shipping_total'       => $shippingTotal,
@@ -139,17 +184,14 @@ class OrderController extends Controller
 
                 $order->items()->createMany($lineItems);
 
+                // The ordered products leave the account cart in the same transaction, so every device sees
+                // the emptied cart even if the client never gets to clear it.
+                CartItem::where('user_id', $user->id)
+                    ->whereIn('product_id', array_column($lineItems, 'product_id'))
+                    ->delete();
+
                 return $order;
             });
-
-            // Dispatch job to send order to ERP asynchronously
-            SendOrderToErp::dispatch($order);
-
-            return response()->json([
-                'message' => 'Order placed successfully',
-                'data'    => $this->formatOrder($order),
-            ], 201);
-
         } catch (\Throwable $e) {
             Log::emergency('Failed to place order', [
                 'error' => $e->getMessage(),
@@ -159,6 +201,23 @@ class OrderController extends Controller
             ]);
             return response()->json(['message' => 'Failed to place order'], 500);
         }
+
+        // The order is committed at this point. A failure to queue the ERP sync must not be reported to the
+        // buyer as a failed order (they would place it again); it is logged and the order stays 'pending'
+        // so it can be re-sent.
+        try {
+            SendOrderToErp::dispatch($order);
+        } catch (\Throwable $e) {
+            Log::error('Order placed but ERP sync could not be queued', [
+                'order_id' => $order->id,
+                'error'    => $e->getMessage(),
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Order placed successfully',
+            'data'    => $this->formatOrder($order),
+        ], 201);
     }
 
     /**

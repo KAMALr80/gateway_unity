@@ -31,3 +31,12 @@ docs/context.md
 .htaccess
 /public/.htaccess
 error_log
+# local secrets / certificates
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+php.ini

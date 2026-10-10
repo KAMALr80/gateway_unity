@@ -19,6 +19,9 @@ Schedule::command('queue:work --stop-when-empty --max-time=50')
     ->everyMinute()
     ->withoutOverlapping(10);
 
+// Keep the failed_jobs table small.
+Schedule::command('queue:prune-failed --hours=720')->daily();
+
 Schedule::command('orders:resend-stuck')
     ->everyTenMinutes()
     ->withoutOverlapping();
@@ -56,3 +59,29 @@ Artisan::command('orders:resend-stuck {--max-attempts=24}', function () {
 
     $this->info("Resent {$due->count()}, unstuck {$unstuck}, gave up on {$gaveUp}.");
 })->purpose('Send again orders stuck on their way to the ERP');
+
+/*
+ | Manual retry for an operator: queues every unsynced order whose last attempt
+ | is older than 30 minutes (or that was never tried). --include-failed also
+ | gives orders that ran out of attempts a fresh start. Same ERP order_key
+ | rule as above, so nothing is ever created twice in the ERP.
+ */
+Artisan::command('erp:retry-orders {--include-failed : Also retry orders marked failed}', function () {
+    $statuses = $this->option('include-failed') ? ['pending', 'failed'] : ['pending'];
+
+    $due = Order::whereIn('sync_status', $statuses)
+        ->where(function ($q) {
+            $q->whereNull('last_sync_attempt_at')
+              ->orWhere('last_sync_attempt_at', '<', now()->subMinutes(30));
+        })
+        ->get();
+
+    foreach ($due as $order) {
+        if ($order->sync_status === 'failed') {
+            $order->update(['sync_status' => 'pending', 'sync_attempts' => 0]);
+        }
+        SendOrderToErp::dispatch($order);
+    }
+
+    $this->info("Queued {$due->count()} order(s) for the ERP.");
+})->purpose('Queue unsynced orders for the ERP again');

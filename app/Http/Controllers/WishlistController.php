@@ -27,6 +27,7 @@ class WishlistController extends Controller
                     'slug'     => $item->product->slug,
                     'sku'      => $item->product->sku,
                     'in_stock' => $item->product->in_stock,
+                    'stock_quantity' => $item->product->manage_stock ? $item->product->stock_quantity : null,
                     'image'    => $item->product->primaryImage?->public_url,
                 ],
             ])
@@ -47,7 +48,9 @@ class WishlistController extends Controller
         }
         $product = $query->firstOrFail();
 
-        $item = WishlistItem::firstOrCreate([
+        // createOrFirst relies on the unique (user_id, product_id) index, so a double click or two devices
+        // adding at the same moment return the existing row instead of failing with a duplicate-key error.
+        $item = WishlistItem::createOrFirst([
             'user_id'    => auth('api')->id(),
             'product_id' => $product->id,
         ]);

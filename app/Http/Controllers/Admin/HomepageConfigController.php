@@ -96,11 +96,27 @@ class HomepageConfigController extends Controller
             'site_settings.nav_groups.*.keywords' => 'array|max:30',
             'site_settings.nav_groups.*.keywords.*' => 'string|max:80',
             'site_settings.nav_groups.*.url' => 'nullable|string|max:2048',
+            'site_settings.nav_groups.*.names' => 'array|max:100',
+            'site_settings.nav_groups.*.names.*' => 'string|max:120',
+            'site_settings.site_tagline' => 'nullable|string|max:255',
+            'site_settings.nav_links_before' => 'array|max:12',
+            'site_settings.nav_links_before.*.label' => 'required|string|max:80',
+            'site_settings.nav_links_before.*.url' => 'required|string|max:2048',
+            'site_settings.all_categories' => 'array|max:40',
+            'site_settings.all_categories.*.label' => 'required|string|max:80',
+            'site_settings.all_categories.*.url' => 'required|string|max:2048',
             'site_settings.footer_columns' => 'array|max:8',
             'site_settings.footer_columns.*.title' => 'required|string|max:80',
             'site_settings.footer_columns.*.links' => 'array|max:30',
             'site_settings.footer_columns.*.links.*.label' => 'required|string|max:120',
             'site_settings.footer_columns.*.links.*.url' => 'required|string|max:2048',
+            'site_settings.utility_message' => 'nullable|string|max:255',
+            'site_settings.utility_links' => 'array|max:8',
+            'site_settings.utility_links.*.label' => 'required|string|max:80',
+            'site_settings.utility_links.*.url' => 'required|string|max:2048',
+            'site_settings.nav_links' => 'array|max:12',
+            'site_settings.nav_links.*.label' => 'required|string|max:80',
+            'site_settings.nav_links.*.url' => 'required|string|max:2048',
             'site_settings.business_hours' => 'array|max:14',
             'site_settings.business_hours.*' => 'string|max:120',
             'site_logo' => 'nullable|image|mimes:jpg,jpeg,png,webp,gif|max:5120',
@@ -117,7 +133,12 @@ class HomepageConfigController extends Controller
             throw ValidationException::withMessages(['catalog_background_image' => 'Choose a new background or remove the current background, not both.']);
         }
 
-        $data['site_settings'] = $this->normalizeSiteSettings($request, $data['site_settings']);
+        // Keep site settings the admin form does not send (they are only replaced when posted).
+        $data['site_settings'] = array_merge(
+            $config->site_settings ?? [],
+            $this->normalizeSiteSettings($request, $data['site_settings']),
+        );
+
         $oldClientKey = $config->client_key;
         $directory = "homepage/{$data['client_key']}/site";
         $newPaths = [];
@@ -185,7 +206,7 @@ class HomepageConfigController extends Controller
     public function storeSection(Request $request, HomepageConfig $config)
     {
         $base = $request->validate([
-            'type' => 'required|in:featured_category,banner,hero,product_carousel,brand_showcase,catalog_showcase',
+            'type' => 'required|in:featured_category,banner,hero,product_carousel,brand_showcase,catalog_showcase,feature_list,notice',
             'title' => 'required|string|max:255',
             'is_active' => 'boolean',
             'settings' => 'array',
@@ -211,13 +232,22 @@ class HomepageConfigController extends Controller
         abort_if($section->homepage_config_id !== $config->id, 404);
 
         $base = $request->validate([
-            'type' => 'required|in:featured_category,banner,hero,product_carousel,brand_showcase,catalog_showcase',
+            'type' => 'required|in:featured_category,banner,hero,product_carousel,brand_showcase,catalog_showcase,feature_list,notice',
             'title' => 'required|string|max:255',
             'is_active' => 'boolean',
             'settings' => 'array',
         ]);
 
         $settings = $this->validateSettings($request, $base['type']);
+
+        // The admin form does not edit these yet; keep what is stored instead of dropping it on every save.
+        if ($section->type === $base['type']) {
+            foreach (['source', 'layout', 'action_text', 'action_url', 'features'] as $key) {
+                if (! array_key_exists($key, $settings) && array_key_exists($key, $section->settings ?? [])) {
+                    $settings[$key] = $section->settings[$key];
+                }
+            }
+        }
 
         $section->update([
             'type' => $base['type'],
@@ -466,7 +496,11 @@ class HomepageConfigController extends Controller
     private function validateSettings(Request $request, string $type): array
     {
         return match ($type) {
-            'banner' => [],
+            'notice' => [],
+
+            'banner' => $request->validate([
+                'settings.layout' => 'nullable|in:grid,mosaic,strips,pair,wide',
+            ])['settings'] ?? [],
 
             'featured_category' => $request->validate([
                 'settings.category_id' => 'nullable|integer|exists:categories,id',
@@ -478,6 +512,13 @@ class HomepageConfigController extends Controller
                 'settings.brand_ids.*' => 'integer|distinct|exists:brands,id',
             ])['settings'] ?? [],
 
+            'feature_list' => $request->validate([
+                'settings.features' => 'array|max:8',
+                'settings.features.*.icon' => 'required|in:truck,store,clock,shield,tag,phone',
+                'settings.features.*.title' => 'required|string|max:80',
+                'settings.features.*.text' => 'nullable|string|max:120',
+            ])['settings'] ?? [],
+
             'hero' => $request->validate([
                 'settings.subtitle' => 'nullable|string|max:500',
                 'settings.cta_text' => 'nullable|string|max:100',
@@ -487,6 +528,9 @@ class HomepageConfigController extends Controller
 
             'product_carousel' => $request->validate([
                 'settings.limit' => 'integer|min:1|max:50',
+                'settings.source' => 'nullable|in:manual,newest,on_sale,best_selling',
+                'settings.action_text' => 'nullable|string|max:80',
+                'settings.action_url' => 'nullable|string|max:2048',
                 'settings.product_ids' => 'present|array|max:50',
                 'settings.product_ids.*' => 'integer|distinct|exists:products,id',
             ])['settings'] ?? [],

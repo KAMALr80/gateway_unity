@@ -172,7 +172,15 @@ export interface AdminOrder {
     updated_at: string;
 }
 
-export type HomepageSectionType = 'featured_category' | 'banner' | 'hero' | 'product_carousel' | 'brand_showcase' | 'catalog_showcase';
+export type HomepageSectionType =
+    | 'featured_category'
+    | 'banner'
+    | 'hero'
+    | 'product_carousel'
+    | 'brand_showcase'
+    | 'catalog_showcase'
+    | 'feature_list'
+    | 'notice';
 
 export interface HomepageSectionSettings {
     // featured_category
@@ -191,6 +199,13 @@ export interface HomepageSectionSettings {
     limit?: number;
     offset?: number;
     product_ids?: number[];
+    source?: 'manual' | 'newest' | 'on_sale' | 'best_selling';
+    action_text?: string;
+    action_url?: string;
+    // banner
+    layout?: 'grid' | 'mosaic' | 'strips' | 'pair' | 'wide';
+    // feature_list
+    features?: { icon: string; title: string; text?: string }[];
     // brand_showcase
     brand_ids?: number[];
     // catalog_showcase
@@ -266,8 +281,22 @@ export interface SiteSettings {
     footer_copyright?: string;
     footer_legal_notice?: string;
     business_hours_title?: string;
-    nav_groups?: { label: string; keywords: string[]; url?: string }[];
-    footer_columns?: { title: string; links: { label: string; url: string }[] }[];
+    site_tagline?: string;
+    utility_message?: string;
+    utility_links?: { label: string; url: string }[];
+    nav_links_before?: { label: string; url: string }[];
+    nav_links?: { label: string; url: string }[];
+    all_categories?: { label: string; url: string }[];
+    nav_groups?: {
+        label: string;
+        keywords: string[];
+        names?: string[];
+        url?: string;
+    }[];
+    footer_columns?: {
+        title: string;
+        links: { label: string; url: string }[];
+    }[];
     business_hours?: string[];
 }
 

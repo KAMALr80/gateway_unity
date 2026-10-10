@@ -9,9 +9,11 @@ class InternalApiKey
 {
     public function handle(Request $request, Closure $next)
     {
-        $key = $request->header('X-Internal-Key');
+        $key      = (string) $request->header('X-Internal-Key', '');
+        $expected = (string) config('services.erp.internal_key', '');
 
-        if (!$key || $key !== config('services.erp.internal_key')) {
+        // Constant-time comparison; an unset key on the server never authorises anything.
+        if ($expected === '' || $key === '' || ! hash_equals($expected, $key)) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 

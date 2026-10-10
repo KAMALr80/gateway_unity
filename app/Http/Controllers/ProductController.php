@@ -4,16 +4,24 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Services\CacheService;
+use App\Services\MediaThumbnails;
 use App\Support\CatalogScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    public function __construct(protected CacheService $cache) {}
+    public function __construct(protected CacheService $cache, protected MediaThumbnails $thumbnails) {}
 
     public function index(Request $request): JsonResponse
     {
+        // Bad paging/search input is a 422; it used to reach the query as LIMIT -5 or an array (HTTP 500).
+        // An oversized per_page is still capped below, as documented.
+        $request->validate([
+            'per_page' => ['nullable', 'integer', 'min:1'],
+            'search'   => ['nullable', 'string'],
+        ]);
+
         $showPrices = $this->canSeePrices();
         $scope      = CatalogScope::ids();
 
@@ -147,6 +155,9 @@ class ProductController extends Controller
                 'per_page'     => $products->perPage(),
                 'total'        => $products->total(),
                 'last_page'    => $products->lastPage(),
+                // Positions of the first and last product on this page; null when the page is empty.
+                'from'         => $products->firstItem(),
+                'to'           => $products->lastItem(),
             ],
         ];
 
@@ -219,6 +230,8 @@ class ProductController extends Controller
             'slug'           => $product->slug,
             'website_url'    => $product->website_url,
             'type'           => $product->type,
+            // The grouped product a variation belongs to (null otherwise), for grouping in carts.
+            'parent_id'      => $product->parent_id,
             'sku'            => $product->sku,
             'regular_price'  => $showPrices ? $product->regular_price  : null,
             'sale_price'     => $showPrices ? $product->sale_price     : null,
@@ -228,6 +241,8 @@ class ProductController extends Controller
             'in_stock'       => $product->in_stock,
             'stock_quantity' => $product->manage_stock ? $product->stock_quantity : null,
             'image'          => $product->primaryImage?->public_url,
+            // Optional WebP variants keyed by size (64/256/512/1024) plus "original"; null when there are none.
+            'image_variants' => $this->thumbnails->variantsFor($product->primaryImage),
             'category'       => $product->category ? [
                 'id'   => $product->category->id,
                 'name' => $product->category->name,
@@ -254,6 +269,7 @@ class ProductController extends Controller
                 'thumbnail'  => $m->thumbnail_url,
                 'alt'        => $m->alt,
                 'is_primary' => $m->is_primary,
+                'variants'   => $this->thumbnails->variantsFor($m),
             ])->values()->all();
             $data['parent']   = $groupData['parent']   ?? null;
             $data['children'] = $groupData['children'] ?? [];

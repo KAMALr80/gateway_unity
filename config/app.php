@@ -55,6 +55,12 @@ return [
     'url' => env('APP_URL', 'http://localhost'),
 
     /*
+    | Public origin of the storefront (no trailing slash). Customer password-reset
+    | emails link to {frontend_url}/reset-password; unset, they use the admin page.
+    */
+    'frontend_url' => env('FRONTEND_URL'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------

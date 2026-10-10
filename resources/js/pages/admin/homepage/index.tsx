@@ -1,5 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import {
+    ArrowLeftRight,
     CalendarDays,
     CheckCircle2,
     Layers3,
@@ -73,16 +74,29 @@ export default function HomepageIndex({
                                 visual asset from a single publishing workspace.
                             </p>
                         </div>
-                        <Button
-                            asChild
-                            size="lg"
-                            className="bg-white text-slate-950 shadow-lg hover:bg-slate-100"
-                        >
-                            <Link href={adminRoutes.homepage.create().url}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Create configuration
-                            </Link>
-                        </Button>
+                        <div className="flex flex-wrap gap-3">
+                            <Button
+                                asChild
+                                size="lg"
+                                variant="outline"
+                                className="border-white/30 bg-transparent text-white hover:bg-white/10 hover:text-white"
+                            >
+                                <Link href="/admin/homepage-transfer">
+                                    <ArrowLeftRight className="mr-2 h-4 w-4" />
+                                    Import / export
+                                </Link>
+                            </Button>
+                            <Button
+                                asChild
+                                size="lg"
+                                className="bg-white text-slate-950 shadow-lg hover:bg-slate-100"
+                            >
+                                <Link href={adminRoutes.homepage.create().url}>
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Create configuration
+                                </Link>
+                            </Button>
+                        </div>
                     </div>
                 </div>
 

@@ -13,16 +13,16 @@ use Illuminate\Support\Facades\Storage;
 uses(RefreshDatabase::class);
 
 it('returns only active homepage content in configured order', function () {
-    $config = HomepageConfig::create(['client_key' => 'new-england', 'label' => 'New England', 'is_active' => true]);
+    $config = HomepageConfig::create(['client_key' => 'unity', 'label' => 'Unity', 'is_active' => true]);
     $catalog = $config->sections()->create(['type' => 'catalog_showcase', 'title' => 'Catalogs', 'sort_order' => 2, 'is_active' => true, 'settings' => ['eyebrow' => 'Distro']]);
     $hero = $config->sections()->create(['type' => 'hero', 'title' => 'Hero', 'sort_order' => 1, 'is_active' => true, 'settings' => []]);
     $config->sections()->create(['type' => 'banner', 'title' => 'Hidden', 'sort_order' => 0, 'is_active' => false, 'settings' => []]);
 
-    $hero->items()->create(['kind' => 'slide', 'title' => 'First', 'desktop_image_path' => 'homepage/new-england/hero.jpg', 'alt_text' => 'Hero', 'sort_order' => 0, 'is_active' => true]);
-    $hero->items()->create(['kind' => 'slide', 'title' => 'Hidden', 'desktop_image_path' => 'homepage/new-england/hidden.jpg', 'alt_text' => 'Hidden', 'sort_order' => 1, 'is_active' => false]);
-    $catalog->items()->create(['kind' => 'catalog', 'title' => 'Wholesale Catalog', 'desktop_image_path' => 'homepage/new-england/cover.jpg', 'pdf_path' => 'homepage/new-england/catalog.pdf', 'alt_text' => 'Catalog cover', 'sort_order' => 0, 'is_active' => true]);
+    $hero->items()->create(['kind' => 'slide', 'title' => 'First', 'desktop_image_path' => 'homepage/unity/hero.jpg', 'alt_text' => 'Hero', 'sort_order' => 0, 'is_active' => true]);
+    $hero->items()->create(['kind' => 'slide', 'title' => 'Hidden', 'desktop_image_path' => 'homepage/unity/hidden.jpg', 'alt_text' => 'Hidden', 'sort_order' => 1, 'is_active' => false]);
+    $catalog->items()->create(['kind' => 'catalog', 'title' => 'Wholesale Catalog', 'desktop_image_path' => 'homepage/unity/cover.jpg', 'pdf_path' => 'homepage/unity/catalog.pdf', 'alt_text' => 'Catalog cover', 'sort_order' => 0, 'is_active' => true]);
 
-    $this->getJson('/api/homepage?client=new-england')
+    $this->getJson('/api/homepage?client=unity')
         ->assertOk()
         ->assertJsonPath('sections.0.id', $hero->id)
         ->assertJsonPath('sections.1.id', $catalog->id)
@@ -41,7 +41,7 @@ it('requires an administrator for homepage management', function () {
 it('uploads a catalog cover and PDF for an administrator', function () {
     Storage::fake('public');
     $admin = User::factory()->create(['email' => 'jay@brainbean.in', 'is_admin' => true]);
-    $config = HomepageConfig::create(['client_key' => 'new-england', 'label' => 'New England', 'is_active' => true]);
+    $config = HomepageConfig::create(['client_key' => 'unity', 'label' => 'Unity', 'is_active' => true]);
     $section = $config->sections()->create(['type' => 'catalog_showcase', 'title' => 'Catalogs', 'sort_order' => 0, 'is_active' => true, 'settings' => []]);
 
     $response = $this->actingAs($admin)->post("/admin/homepage/{$config->id}/sections/{$section->id}/items", [
@@ -66,13 +66,13 @@ it('stores uploaded site branding and removes legacy URL fallbacks', function ()
     Storage::fake('public');
     $admin = User::factory()->create(['is_admin' => true]);
     $config = HomepageConfig::create([
-        'client_key' => 'new-england',
-        'label' => 'New England',
+        'client_key' => 'unity',
+        'label' => 'Unity',
         'is_active' => true,
-        'site_logo_path' => 'homepage/new-england/site/old-logo.png',
-        'catalog_background_path' => 'homepage/new-england/site/old-background.png',
+        'site_logo_path' => 'homepage/unity/site/old-logo.png',
+        'catalog_background_path' => 'homepage/unity/site/old-background.png',
         'site_settings' => [
-            'site_name' => 'New England Distribution',
+            'site_name' => 'Unity Wholesale',
             'logo_url' => '/images/brand/old-logo.png',
             'catalog_background_logo_url' => '/images/brand/old-background.png',
         ],
@@ -81,8 +81,8 @@ it('stores uploaded site branding and removes legacy URL fallbacks', function ()
     Storage::disk('public')->put($config->catalog_background_path, 'old background');
 
     $this->actingAs($admin)->patch("/admin/homepage/{$config->id}", [
-        'client_key' => 'new-england',
-        'label' => 'New England',
+        'client_key' => 'unity',
+        'label' => 'Unity',
         'is_active' => true,
         'site_settings' => $config->site_settings,
         'site_logo' => UploadedFile::fake()->image('logo.png', 400, 400),
@@ -93,34 +93,34 @@ it('stores uploaded site branding and removes legacy URL fallbacks', function ()
 
     expect($config->site_settings['logo_url'])->toBeNull()
         ->and($config->site_settings['catalog_background_logo_url'])->toBeNull()
-        ->and($config->site_logo_path)->not->toBe('homepage/new-england/site/old-logo.png')
-        ->and($config->catalog_background_path)->not->toBe('homepage/new-england/site/old-background.png');
+        ->and($config->site_logo_path)->not->toBe('homepage/unity/site/old-logo.png')
+        ->and($config->catalog_background_path)->not->toBe('homepage/unity/site/old-background.png');
     Storage::disk('public')->assertExists($config->site_logo_path);
     Storage::disk('public')->assertExists($config->catalog_background_path);
-    Storage::disk('public')->assertMissing('homepage/new-england/site/old-logo.png');
-    Storage::disk('public')->assertMissing('homepage/new-england/site/old-background.png');
+    Storage::disk('public')->assertMissing('homepage/unity/site/old-logo.png');
+    Storage::disk('public')->assertMissing('homepage/unity/site/old-background.png');
 });
 
 it('removes stored branding safely and keeps valid external fallbacks', function () {
     Storage::fake('public');
     $admin = User::factory()->create(['is_admin' => true]);
     $config = HomepageConfig::create([
-        'client_key' => 'new-england',
-        'label' => 'New England',
+        'client_key' => 'unity',
+        'label' => 'Unity',
         'is_active' => true,
-        'site_logo_path' => 'homepage/new-england/site/logo.png',
-        'catalog_background_path' => 'homepage/new-england/site/background.png',
-        'site_settings' => ['site_name' => 'New England Distribution'],
+        'site_logo_path' => 'homepage/unity/site/logo.png',
+        'catalog_background_path' => 'homepage/unity/site/background.png',
+        'site_settings' => ['site_name' => 'Unity Wholesale'],
     ]);
     Storage::disk('public')->put($config->site_logo_path, 'logo');
     Storage::disk('public')->put($config->catalog_background_path, 'background');
 
     $this->actingAs($admin)->patch("/admin/homepage/{$config->id}", [
-        'client_key' => 'new-england',
-        'label' => 'New England',
+        'client_key' => 'unity',
+        'label' => 'Unity',
         'is_active' => true,
         'site_settings' => [
-            'site_name' => 'New England Distribution',
+            'site_name' => 'Unity Wholesale',
             'logo_url' => 'https://cdn.example.com/logo.png',
             'catalog_background_logo_url' => 'https://cdn.example.com/background.png',
         ],
@@ -134,9 +134,9 @@ it('removes stored branding safely and keeps valid external fallbacks', function
         ->and($config->catalog_background_path)->toBeNull()
         ->and($config->site_settings['logo_url'])->toBe('https://cdn.example.com/logo.png')
         ->and($config->site_settings['catalog_background_logo_url'])->toBe('https://cdn.example.com/background.png');
-    Storage::disk('public')->assertMissing('homepage/new-england/site/logo.png');
-    Storage::disk('public')->assertMissing('homepage/new-england/site/background.png');
-    $this->getJson('/api/homepage?client=new-england')
+    Storage::disk('public')->assertMissing('homepage/unity/site/logo.png');
+    Storage::disk('public')->assertMissing('homepage/unity/site/background.png');
+    $this->getJson('/api/homepage?client=unity')
         ->assertOk()
         ->assertJsonPath('site.logo_url', 'https://cdn.example.com/logo.png')
         ->assertJsonPath('site.catalog_background_logo_url', 'https://cdn.example.com/background.png');
@@ -145,27 +145,27 @@ it('removes stored branding safely and keeps valid external fallbacks', function
 it('keeps the homepage client key immutable after creation', function () {
     $admin = User::factory()->create(['is_admin' => true]);
     $config = HomepageConfig::create([
-        'client_key' => 'new-england',
-        'label' => 'New England',
+        'client_key' => 'unity',
+        'label' => 'Unity',
         'is_active' => true,
         'site_settings' => [],
     ]);
 
     $this->actingAs($admin)->patch("/admin/homepage/{$config->id}", [
         'client_key' => 'changed-client',
-        'label' => 'New England',
+        'label' => 'Unity',
         'is_active' => true,
         'site_settings' => [],
     ])->assertSessionHasErrors('client_key');
 
-    expect($config->fresh()->client_key)->toBe('new-england');
+    expect($config->fresh()->client_key)->toBe('unity');
 });
 
 it('accepts a secure external image URL instead of an uploaded image', function () {
     Storage::fake('public');
     Http::fake(['*' => Http::response('fake-image-content', 200, ['Content-Type' => 'image/webp'])]);
     $admin = User::factory()->create(['is_admin' => true]);
-    $config = HomepageConfig::create(['client_key' => 'new-england', 'label' => 'New England', 'is_active' => true]);
+    $config = HomepageConfig::create(['client_key' => 'unity', 'label' => 'Unity', 'is_active' => true]);
     $section = $config->sections()->create(['type' => 'banner', 'title' => 'Promotions', 'sort_order' => 0, 'is_active' => true, 'settings' => []]);
 
     $this->actingAs($admin)->post("/admin/homepage/{$config->id}/sections/{$section->id}/items", [
@@ -182,7 +182,7 @@ it('accepts a secure external image URL instead of an uploaded image', function 
         ->and($item->desktop_image_external_url)->toBe('https://example.com/banner.webp');
     Storage::disk('public')->assertExists($item->desktop_image_path);
 
-    $this->getJson('/api/homepage?client=new-england')
+    $this->getJson('/api/homepage?client=unity')
         ->assertOk()
         ->assertJsonPath('sections.0.items.0.desktop_image_url', url(Storage::disk('public')->url($item->desktop_image_path)))
         ->assertJsonPath('sections.0.items.0.mobile_image_url', url(Storage::disk('public')->url($item->mobile_image_path)));
@@ -202,13 +202,13 @@ it('rejects nested homepage items from another section', function () {
 
 it('normalizes multipart site settings into the shape the storefront reads', function () {
     $admin = User::factory()->create(['is_admin' => true]);
-    $config = HomepageConfig::create(['client_key' => 'new-england', 'label' => 'New England', 'is_active' => true, 'site_settings' => ['newsletter_enabled' => true]]);
+    $config = HomepageConfig::create(['client_key' => 'unity', 'label' => 'Unity', 'is_active' => true, 'site_settings' => ['newsletter_enabled' => true]]);
 
     // The edit page sends multipart data: booleans become "0"/"1" and empty arrays are omitted.
     $this->actingAs($admin)->post("/admin/homepage/{$config->id}", [
         '_method' => 'patch',
-        'client_key' => 'new-england',
-        'label' => 'New England',
+        'client_key' => 'unity',
+        'label' => 'Unity',
         'is_active' => '1',
         'site_settings' => [
             'newsletter_enabled' => '0',
@@ -222,14 +222,14 @@ it('normalizes multipart site settings into the shape the storefront reads', fun
         ->nav_groups->toBe([['label' => 'Sale', 'url' => '/sale', 'keywords' => []]])
         ->footer_columns->toBe([['title' => 'Coming soon', 'links' => []]])
         ->business_hours->toBe([]);
-    $this->getJson('/api/homepage?client=new-england')->assertJsonPath('site.newsletter_enabled', false);
+    $this->getJson('/api/homepage?client=unity')->assertJsonPath('site.newsletter_enabled', false);
 });
 
 it('keeps featured category and brand selections on homepage sections', function () {
     $admin = User::factory()->create(['is_admin' => true]);
     $category = Category::create(['name' => 'Vapes', 'slug' => 'vapes', 'is_active' => true]);
     $brand = Brand::create(['name' => 'Acme', 'slug' => 'acme', 'is_active' => true]);
-    $config = HomepageConfig::create(['client_key' => 'new-england', 'label' => 'New England', 'is_active' => true]);
+    $config = HomepageConfig::create(['client_key' => 'unity', 'label' => 'Unity', 'is_active' => true]);
 
     $this->actingAs($admin)->post("/admin/homepage/{$config->id}/sections", [
         'type' => 'featured_category', 'title' => 'Featured', 'is_active' => true,
@@ -243,7 +243,7 @@ it('keeps featured category and brand selections on homepage sections', function
     [$featured, $brands] = $config->sections()->orderBy('sort_order')->get();
     expect($featured->settings)->toBe(['category_id' => $category->id, 'product_limit' => 4])
         ->and($brands->settings)->toBe(['brand_ids' => [$brand->id]]);
-    $this->getJson('/api/homepage?client=new-england')
+    $this->getJson('/api/homepage?client=unity')
         ->assertJsonPath('sections.0.data.category.id', $category->id)
         ->assertJsonPath('sections.1.data.brands.0.id', $brand->id);
 });
@@ -255,7 +255,7 @@ it('rejects a remote image URL that redirects to a private address', function ()
         'http://127.0.0.1/*' => Http::response('internal', 200, ['Content-Type' => 'image/png']),
     ]);
     $admin = User::factory()->create(['is_admin' => true]);
-    $config = HomepageConfig::create(['client_key' => 'new-england', 'label' => 'New England', 'is_active' => true]);
+    $config = HomepageConfig::create(['client_key' => 'unity', 'label' => 'Unity', 'is_active' => true]);
     $section = $config->sections()->create(['type' => 'banner', 'title' => 'Promotions', 'sort_order' => 0, 'is_active' => true, 'settings' => []]);
 
     $this->actingAs($admin)->post("/admin/homepage/{$config->id}/sections/{$section->id}/items", [
@@ -275,7 +275,7 @@ it('follows a remote image redirect between public addresses', function () {
         'https://example.com/new.png' => Http::response('image', 200, ['Content-Type' => 'image/png']),
     ]);
     $admin = User::factory()->create(['is_admin' => true]);
-    $config = HomepageConfig::create(['client_key' => 'new-england', 'label' => 'New England', 'is_active' => true]);
+    $config = HomepageConfig::create(['client_key' => 'unity', 'label' => 'Unity', 'is_active' => true]);
     $section = $config->sections()->create(['type' => 'banner', 'title' => 'Promotions', 'sort_order' => 0, 'is_active' => true, 'settings' => []]);
 
     $this->actingAs($admin)->post("/admin/homepage/{$config->id}/sections/{$section->id}/items", [
@@ -290,10 +290,10 @@ it('follows a remote image redirect between public addresses', function () {
 it('reports the promotional banner limit on product sections as a validation error', function () {
     Storage::fake('public');
     $admin = User::factory()->create(['is_admin' => true]);
-    $config = HomepageConfig::create(['client_key' => 'new-england', 'label' => 'New England', 'is_active' => true]);
+    $config = HomepageConfig::create(['client_key' => 'unity', 'label' => 'Unity', 'is_active' => true]);
     $section = $config->sections()->create(['type' => 'product_carousel', 'title' => 'Deals', 'sort_order' => 0, 'is_active' => true, 'settings' => ['product_ids' => []]]);
     foreach ([0, 1] as $order) {
-        $section->items()->create(['kind' => 'content', 'desktop_image_path' => "homepage/new-england/banner-{$order}.jpg", 'sort_order' => $order, 'is_active' => true]);
+        $section->items()->create(['kind' => 'content', 'desktop_image_path' => "homepage/unity/banner-{$order}.jpg", 'sort_order' => $order, 'is_active' => true]);
     }
 
     $this->actingAs($admin)->post("/admin/homepage/{$config->id}/sections/{$section->id}/items", [

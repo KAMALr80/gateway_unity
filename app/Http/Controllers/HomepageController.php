@@ -9,6 +9,7 @@ use App\Models\HomepageSectionItem;
 use App\Models\Product;
 use App\Support\CatalogScope;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class HomepageController extends Controller
@@ -111,6 +112,9 @@ class HomepageController extends Controller
             'Content-Disposition' => 'inline; filename="'.str($item->title ?: 'catalog')->slug().'.pdf"',
             'Cache-Control' => 'public, max-age=3600',
             'X-Content-Type-Options' => 'nosniff',
+            // Lets the cross-origin storefront (pdf.js) see that byte ranges are supported, so phones/tablets
+            // only download the pages being viewed instead of the whole catalog.
+            'Access-Control-Expose-Headers' => 'Accept-Ranges, Content-Range, Content-Length',
         ]);
     }
 
@@ -201,6 +205,12 @@ class HomepageController extends Controller
     private function resolveProductCarousel(array $settings, ?array $scope): array
     {
         $limit = min(max((int) ($settings['limit'] ?? 14), 1), 50);
+        $source = (string) ($settings['source'] ?? 'manual');
+
+        if (in_array($source, ['newest', 'on_sale', 'best_selling'], true)) {
+            return ['product_ids' => $this->productIdsBySource($source, $limit, $scope)];
+        }
+
         $requestedIds = array_slice(array_values(array_unique(array_map('intval', $settings['product_ids'] ?? []))), 0, $limit);
         $existing = Product::query()
             ->whereIn('id', $requestedIds)
@@ -220,5 +230,45 @@ class HomepageController extends Controller
                 fn (int $id) => isset($existingLookup[$id]),
             )),
         ];
+    }
+
+    /**
+     * Product ids for a carousel that is filled from live catalogue data instead of a hand-picked list.
+     * Read-only: nothing here changes products, prices or stock, and an empty result stays empty.
+     */
+    private function productIdsBySource(string $source, int $limit, ?array $scope): array
+    {
+        // A catalog-limited account only gets products of its own catalog, as with hand-picked lists.
+        $visible = function () use ($scope) {
+            $query = Product::query()->where('products.is_active', true)->whereNull('products.parent_id');
+
+            return $scope === null ? $query : CatalogScope::restrictProducts($query, $scope);
+        };
+
+        return match ($source) {
+            'newest' => $visible()->where('in_stock', true)->orderByDesc('created_at')->orderByDesc('id')->limit($limit)->pluck('id')->all(),
+            'on_sale' => $visible()->whereNotNull('sale_price')->whereColumn('sale_price', '<', 'regular_price')->where('in_stock', true)->orderByDesc('id')->limit($limit)->pluck('id')->all(),
+            'best_selling' => $this->bestSellingProductIds($limit, $visible),
+        };
+    }
+
+    /** Most ordered products (variants count towards their parent product), from real order lines only. */
+    private function bestSellingProductIds(int $limit, \Closure $visible): array
+    {
+        $ranked = DB::table('order_items')
+            ->join('products', 'products.id', '=', 'order_items.product_id')
+            ->where('products.is_active', true)
+            ->selectRaw('COALESCE(products.parent_id, products.id) as top_id, SUM(order_items.quantity) as sold')
+            ->groupBy('top_id')
+            ->orderByDesc('sold')
+            ->limit(500)
+            ->pluck('top_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        // Keep the sales ranking, but only products this request may show (active parents, in scope).
+        $allowed = array_flip($visible()->whereIn('products.id', $ranked)->pluck('id')->all());
+
+        return array_slice(array_values(array_filter($ranked, fn (int $id) => isset($allowed[$id]))), 0, $limit);
     }
 }

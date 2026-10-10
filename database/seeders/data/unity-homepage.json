@@ -1,0 +1,161 @@
+{
+  "client_key": "unity",
+  "label": "Unity Wholesale",
+  "source": "Structure and copy taken from the supplied Unity Wholesale homepage JSON (converted.json). Image URLs are the files that page references; links are mapped to storefront routes.",
+  "image_host": "https://unitywholesales.com/wp-content/uploads",
+  "site_settings": {
+    "site_name": "Unity Wholesale",
+    "logo_url": "https://unitywholesales.com/wp-content/uploads/2021/10/unity_wholesale_logo.png",
+    "phone": "478-309-5330",
+    "email": "unitywholesalega@gmail.com",
+    "address": "939 Carl Vinson Pkwy\nCenterville, GA, US 31028",
+    "utility_message": "Welcome to Unity Wholesale",
+    "utility_links": [
+      { "label": "About us", "url": "/about" },
+      { "label": "T&C", "url": "/terms-and-conditions" }
+    ],
+    "search_placeholder": "Search for products...",
+    "login_text": "Sign in",
+    "register_text": "Register",
+    "sale_label": "",
+    "sale_url": "/sale",
+    "newsletter_enabled": true,
+    "newsletter_title": "Sign up to Newsletter",
+    "newsletter_placeholder": "Enter your email address",
+    "newsletter_button_text": "SignUp",
+    "seo_title": "Buy Premium Smoking Products Online In Bulk - Unity Wholesale",
+    "seo_description": "Unity Wholesale supplies service businesses with vapes, smoke shop, novelty and convenience store products in bulk.",
+    "homepage_heading": "Buy Premium Smoking Products Online In Bulk",
+    "footer_copyright": "Unity Wholesale. All Rights Reserved.",
+    "footer_legal_notice": "",
+    "business_hours_title": "Business Hours",
+    "nav_groups": [
+      { "label": "Convenience Store", "keywords": ["retail", "scented", "merchandise", "n2o"] },
+      { "label": "Vape Shop", "keywords": ["nicotine", "vape", "vaporizer", "e-juice"] },
+      { "label": "Smoke Shop", "keywords": ["smoking", "glass", "papers", "hookah", "cigar", "lighter", "torch", "storage"] },
+      { "label": "Novelty", "keywords": ["apparel", "bags", "detox", "kratom", "botanical", "mushroom", "hydroxy"] }
+    ],
+    "nav_links": [
+      { "label": "New Arrivals", "url": "/new" },
+      { "label": "Contact Us", "url": "/about" },
+      { "label": "Registration", "url": "/register" }
+    ],
+    "footer_columns": [
+      {
+        "title": "Categories",
+        "links": [
+          { "label": "ASHTRAYS", "url": "/shop?search=ashtrays" },
+          { "label": "AIR FRESHENERS", "url": "/shop?search=air%20freshener" },
+          { "label": "BUTANE", "url": "/shop?search=butane" },
+          { "label": "LIGHTERS", "url": "/shop?search=lighters" },
+          { "label": "ROLLING PAPER", "url": "/shop?search=rolling%20paper" },
+          { "label": "TORCH LIGHTERS", "url": "/shop?search=torch" }
+        ]
+      },
+      {
+        "title": "Customer Care",
+        "links": [
+          { "label": "My Account", "url": "/account/profile" },
+          { "label": "Shop", "url": "/shop" },
+          { "label": "Cart", "url": "/cart" },
+          { "label": "My Orders", "url": "/orders" },
+          { "label": "Contacts", "url": "/about" },
+          { "label": "About Us", "url": "/about" },
+          { "label": "Terms & Condition", "url": "/terms-and-conditions" }
+        ]
+      }
+    ],
+    "business_hours": [
+      "MONDAY: 09:00AM – 07:00PM",
+      "TUESDAY: 09:00AM – 07:00PM",
+      "WEDNESDAY: 09:00AM – 07:00PM",
+      "THURSDAY: 09:00AM – 07:00PM",
+      "FRIDAY: 09:00AM – 07:00PM",
+      "SATURDAY: 09:00AM – 07:00PM",
+      "SUNDAY: 10:00AM – 06:00PM"
+    ]
+  },
+  "sections": [
+    {
+      "type": "hero",
+      "title": "Featured promotions",
+      "settings": { "interval_ms": 6000 },
+      "items": [
+        { "kind": "slide", "image": "2024/04/Double-DIamond-2.jpg", "alt": "Double Diamond", "link": "/shop?search=double%20diamond" },
+        { "kind": "slide", "image": "2024/01/Raz-1.webp", "alt": "RAZ TN9000", "link": "/shop?search=raz%20tn9000" },
+        { "kind": "slide", "image": "2024/01/Zen-Power-2.webp", "alt": "Zen Power", "link": "/shop?search=zen%20power" },
+        { "kind": "slide", "image": "2024/01/Orion-Bar-1.webp", "alt": "Orion Bar 10K", "link": "/shop?search=orion%20bar" },
+        { "kind": "slide", "image": "2024/01/Kado-bar-1.webp", "alt": "Modus Kadobar", "link": "/shop?search=kadobar" },
+        { "kind": "slide", "image": "2024/01/Geek-bar-1.webp", "alt": "Geek Bar Pulse", "link": "/shop?search=geekbar%20pulse" },
+        { "kind": "slide", "image": "2024/01/Viho-1.webp", "alt": "Viho Supercharge", "link": "/shop?search=viho" },
+        { "kind": "slide", "image": "2024/01/Green-Diamond-1.webp", "alt": "Green Diamond", "link": "/shop?search=green%20diamond" },
+        { "kind": "slide", "image": "2023/12/Bugatti-1.webp", "alt": "Bugatti", "link": "/shop?search=bugatti" },
+        { "kind": "slide", "image": "2023/12/Space-Gods.webp", "alt": "Space Gods", "link": "/shop?search=space%20gods" },
+        { "kind": "slide", "image": "2023/12/Lost-Maary-1.webp", "alt": "Lost Mary", "link": "/shop?search=lost%20mary" },
+        { "kind": "slide", "image": "2023/12/Czar-1.webp", "alt": "Czar CZ9000", "link": "/shop?search=czar" },
+        { "kind": "slide", "image": "2023/08/MicrosoftTeams-image-129.png", "alt": "Double Diamond hemp wraps", "link": "/shop?search=double%20diamond" },
+        { "kind": "slide", "image": "2023/08/MicrosoftTeams-image-128.png", "alt": "Green Diamond", "link": "/shop?search=green%20diamond" },
+        { "kind": "slide", "image": "2023/03/8.jpg", "alt": "Smartwhip", "link": "/shop?search=smartwhip" },
+        { "kind": "slide", "image": "2023/03/9.jpg", "alt": "Voopoo Drag S", "link": "/shop?search=voopoo" }
+      ]
+    },
+    { "type": "product_carousel", "title": "Top Rated", "settings": { "source": "manual", "limit": 7, "pick": 7, "pick_categories": ["cigar", "papers"] }, "items": [] },
+    {
+      "type": "banner",
+      "title": "Shop by category",
+      "settings": { "layout": "mosaic" },
+      "items": [
+        { "kind": "content", "title": "Butane", "image": "2022/05/MicrosoftTeams-image-17.jpg", "alt": "Butane", "link": "/shop?search=butane" },
+        { "kind": "content", "title": "Rolling Machine", "image": "2022/05/MicrosoftTeams-image-15.jpg", "alt": "Rolling Machine", "link": "/shop?search=rolling%20machine" },
+        { "kind": "content", "title": "Double Diamond", "image": "2024/12/Double-Diamond-500x640-1.webp", "alt": "Double Diamond", "link": "/shop?search=double%20diamond" },
+        { "kind": "content", "title": "Disposables", "image": "2024/01/Disposables-4.webp", "alt": "Disposables", "link": "/shop?search=disposables" },
+        { "kind": "content", "title": "Ashtrays", "image": "2022/05/MicrosoftTeams-image-19.jpg", "alt": "Ashtrays", "link": "/shop?search=ashtray" }
+      ]
+    },
+    { "type": "product_carousel", "title": "On Sale", "settings": { "source": "on_sale", "limit": 7 }, "items": [] },
+    {
+      "type": "banner",
+      "title": "Featured departments",
+      "settings": { "layout": "strips" },
+      "items": [
+        { "kind": "content", "title": "Disposables / E-Cig", "image": "2023/11/Unity-Disposables-e-cig.webp", "alt": "Disposables / E-Cig", "link": "/shop?search=disposables" },
+        { "kind": "content", "title": "Glass", "image": "2023/11/Unity-Glass.webp", "alt": "Glass", "link": "/shop?search=glass" },
+        { "kind": "content", "title": "Accessories", "image": "2023/11/Unity-Accessories.webp", "alt": "Accessories", "link": "/shop?search=accessories" }
+      ]
+    },
+    { "type": "product_carousel", "title": "Featured", "settings": { "source": "manual", "limit": 1, "pick": 1, "pick_categories": ["apparel"] }, "items": [] },
+    { "type": "product_carousel", "title": "New Arrivals", "settings": { "source": "newest", "limit": 8 }, "items": [] },
+    {
+      "type": "banner",
+      "title": "Devices and torch lighters",
+      "settings": { "layout": "pair" },
+      "items": [
+        { "kind": "content", "title": "Devices", "image": "2023/11/Unity-Devices.webp", "alt": "Devices", "link": "/shop?search=devices" },
+        { "kind": "content", "title": "Torch Lighter", "image": "2023/11/Unity-Torch-Lighter.webp", "alt": "Torch Lighter", "link": "/shop?search=torch%20lighter" }
+      ]
+    },
+    { "type": "product_carousel", "title": "Best Sellers", "settings": { "source": "best_selling", "limit": 7 }, "items": [] },
+    {
+      "type": "feature_list",
+      "title": "Why Unity Wholesale",
+      "settings": {
+        "features": [
+          { "icon": "truck", "title": "Same Day Shipping", "text": "if you order before 2 PM" },
+          { "icon": "store", "title": "Same Day Pickup", "text": "if you order before 2 PM" },
+          { "icon": "clock", "title": "365 days", "text": "Online Order 24 x 7" },
+          { "icon": "tag", "title": "100%", "text": "Original Products" }
+        ]
+      },
+      "items": []
+    },
+    { "type": "notice", "title": "WE PROVIDE SERVICE BUSINESSES ONLY!", "settings": {}, "items": [] },
+    {
+      "type": "banner",
+      "title": "Shop now",
+      "settings": { "layout": "wide" },
+      "items": [
+        { "kind": "content", "title": "Shop now", "image": "2022/05/footer-banner-1.png", "alt": "Get it at affordable price. Shop now.", "link": "/shop" }
+      ]
+    }
+  ]
+}

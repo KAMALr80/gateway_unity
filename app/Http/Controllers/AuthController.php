@@ -59,10 +59,19 @@ class AuthController extends Controller
     {
         try {
             $token = auth('api')->refresh();
-            return $this->tokenResponse($token);
+
+            // refresh() blacklists the request's token, so auth('api')->user() would read that old token and
+            // return null (formatUser(null) was a 500). Resolve the user from the newly issued token instead.
+            $user = auth('api')->setToken($token)->user();
         } catch (\Exception $e) {
             return response()->json(['message' => 'Token cannot be refreshed'], 401);
         }
+
+        if (! $user) {
+            return response()->json(['message' => 'Token cannot be refreshed'], 401);
+        }
+
+        return $this->tokenResponse($token, $user);
     }
 
     public function logout(): JsonResponse
@@ -106,13 +115,13 @@ class AuthController extends Controller
         return response()->json(['message' => 'Password has been reset successfully.']);
     }
 
-    private function tokenResponse(string $token): JsonResponse
+    private function tokenResponse(string $token, ?User $user = null): JsonResponse
     {
         return response()->json([
             'access_token' => $token,
             'token_type'   => 'bearer',
             'expires_in'   => config('jwt.ttl') * 60,
-            'user'         => $this->formatUser(auth('api')->user()),
+            'user'         => $this->formatUser($user ?? auth('api')->user()),
         ]);
     }
 

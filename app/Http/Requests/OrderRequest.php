@@ -44,9 +44,9 @@ class OrderRequest extends FormRequest
             'shipping_country'      => ['required', 'string', 'size:2'],
 
             // Line items
-            'items'                         => ['required', 'array', 'min:1'],
-            'items.*.product_id'            => ['required', 'integer', 'exists:products,id'],
-            'items.*.quantity'              => ['required', 'integer', 'min:1'],
+            'items'                         => ['required', 'array', 'min:1', 'max:200'],
+            'items.*.product_id'            => ['required', 'integer', 'distinct', 'exists:products,id'],
+            'items.*.quantity'              => ['required', 'integer', 'min:1', 'max:999'],
         ];
     }
 }

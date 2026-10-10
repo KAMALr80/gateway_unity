@@ -135,3 +135,26 @@ it('hides chosen products, and their variations, from the scoped user only', fun
     expect($names(fresh($this, $customer)->getJson('/api/products')))->toContain('METAL PIPE 100CT', 'PAPER BAG SMALL');
     fresh($this, $customer)->getJson("/api/products/{$pipe->id}")->assertOk();
 });
+
+it('keeps the cart inside the category', function () {
+    $reviewer = ($this->tokenFor)($this->reviewer);
+
+    fresh($this, $reviewer)->postJson('/api/cart/items', ['product_id' => $this->pipeBag->id, 'quantity' => 1])
+        ->assertStatus(422);
+    fresh($this, $reviewer)->postJson('/api/cart/items', ['product_id' => $this->bag->id, 'quantity' => 1])
+        ->assertOk();
+    fresh($this, $reviewer)->postJson('/api/cart/merge', ['items' => [['product_id' => $this->pipeBag->id, 'quantity' => 1]]]);
+
+    expect(\App\Models\CartItem::where('user_id', $this->reviewer->id)->pluck('product_id')->all())
+        ->toBe([$this->bag->id]);
+});
+
+it('fills newest-product carousels only from the scoped category', function () {
+    $config = \App\Models\HomepageConfig::create(['client_key' => 'unity', 'label' => 'Unity', 'is_active' => true]);
+    $config->sections()->create(['type' => 'product_carousel', 'title' => 'New', 'sort_order' => 0, 'is_active' => true, 'settings' => ['source' => 'newest', 'limit' => 10]]);
+
+    $ids = fn (?string $token) => fresh($this, $token)->getJson('/api/homepage?client=unity')->json('sections.0.data.product_ids');
+
+    expect($ids(null))->toHaveCount(3);
+    expect($ids(($this->tokenFor)($this->reviewer)))->toEqualCanonicalizing([$this->bag->id, $this->paperBag->id]);
+});

@@ -277,6 +277,7 @@ class CartController extends Controller
                 'name'           => $product->name,
                 'sku'            => $product->sku,
                 'image'          => $product->primaryImage?->public_url,
+                'image_variants' => app(\App\Services\MediaThumbnails::class)->variantsFor($product->primaryImage),
                 'quantity'       => $line->quantity,
                 'price'          => $showPrices ? (float) $product->current_price : null,
                 'regular_price'  => $showPrices ? (float) $product->regular_price : null,

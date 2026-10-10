@@ -29,6 +29,7 @@ class WishlistController extends Controller
                     'in_stock' => $item->product->in_stock,
                     'stock_quantity' => $item->product->manage_stock ? $item->product->stock_quantity : null,
                     'image'    => $item->product->primaryImage?->public_url,
+                    'image_variants' => app(\App\Services\MediaThumbnails::class)->variantsFor($item->product->primaryImage),
                 ],
             ])
             ->values();

@@ -22,6 +22,13 @@ Schedule::command('queue:work --stop-when-empty --max-time=50')
 // Keep the failed_jobs table small.
 Schedule::command('queue:prune-failed --hours=720')->daily();
 
+// Product image variants are made ahead of time, so no shopper waits for the slow ERP image host.
+// Existing variants are skipped quickly; each run makes at most 300 new ones.
+Schedule::command('media:warm-variants --limit=300')
+    ->hourly()
+    ->withoutOverlapping(60)
+    ->runInBackground();
+
 Schedule::command('orders:resend-stuck')
     ->everyTenMinutes()
     ->withoutOverlapping();

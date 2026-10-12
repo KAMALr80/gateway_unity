@@ -5,6 +5,7 @@ namespace App\Actions\Fortify;
 use App\Concerns\PasswordValidationRules;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Contracts\ResetsUserPasswords;
 
 class ResetUserPassword implements ResetsUserPasswords
@@ -18,6 +19,10 @@ class ResetUserPassword implements ResetsUserPasswords
      */
     public function reset(User $user, array $input): void
     {
+        if ($user->hasWooLogin()) {
+            throw ValidationException::withMessages(['email' => User::WOO_PASSWORD_MESSAGE]);
+        }
+
         Validator::make($input, [
             'password' => $this->passwordRules(),
         ])->validate();

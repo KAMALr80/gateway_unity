@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateUserRequest;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -82,6 +83,10 @@ class UserController extends Controller
         ]);
 
         $user = auth('api')->user();
+
+        if ($user->hasWooLogin()) {
+            return response()->json(['message' => User::WOO_PASSWORD_MESSAGE], 403);
+        }
 
         if (!Hash::check($request->current_password, $user->password)) {
             return response()->json([

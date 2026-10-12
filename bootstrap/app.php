@@ -23,6 +23,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        // The ERP's contact sync sends WooCommerce passwords; they must arrive exactly as stored.
+        $middleware->trimStrings(except: ['contacts.*.woo_password']);
+
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
 
         $middleware->web(append: [

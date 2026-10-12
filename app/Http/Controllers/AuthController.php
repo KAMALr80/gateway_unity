@@ -31,20 +31,18 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request): JsonResponse
     {
-        $token = auth('api')->attempt($request->only('email', 'password'));
+        // "email" may also be a WooCommerce username or an ERP contact code (see User::findForLogin).
+        $user = User::findForLogin($request->email);
 
-        if (!$token) {
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
-        $user = auth('api')->user();
-
         if ($user->approval_status !== 'approved') {
-            auth('api')->logout();
             return response()->json(['message' => 'Your account is pending approval.'], 403);
         }
 
-        return $this->tokenResponse($token);
+        return $this->tokenResponse(auth('api')->login($user), $user);
     }
 
     public function validate(): JsonResponse
@@ -82,10 +80,13 @@ class AuthController extends Controller
 
     public function forgotPassword(Request $request): JsonResponse
     {
-        $request->validate(['email' => ['required', 'email']]);
+        $request->validate(['email' => ['required', 'string', 'max:255']]);
 
-        // Always return 200 to prevent user enumeration
-        Password::broker()->sendResetLink($request->only('email'));
+        // Always return 200 to prevent user enumeration. A WooCommerce customer gets their login
+        // details instead of a link (User::sendPasswordResetNotification).
+        if ($user = User::findForLogin($request->email)) {
+            Password::broker()->sendResetLink(['email' => $user->email]);
+        }
 
         return response()->json(['message' => 'If that email address is registered, a password reset link has been sent.']);
     }
@@ -98,6 +99,10 @@ class AuthController extends Controller
             'password'              => ['required', 'string', 'min:8', 'confirmed'],
             'password_confirmation' => ['required', 'string'],
         ]);
+
+        if (User::where('email', $request->email)->first()?->hasWooLogin()) {
+            return response()->json(['message' => User::WOO_PASSWORD_MESSAGE], 422);
+        }
 
         $status = Password::broker()->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),

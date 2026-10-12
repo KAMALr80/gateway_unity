@@ -335,7 +335,7 @@ Groups are modelled as a parent product with `type = "grouped"` and a string ERP
 
 ### POST /internal/contacts/sync
 
-Upserts customer/user accounts. Existing users are matched by email. New users are created with a random password — they must use the forgot-password flow to gain app access.
+Upserts customer/user accounts. Existing users are matched by `erp_contact_id`, then by email. A customer with a WooCommerce account signs in with their WooCommerce login (`woo_password`), which is the only password their account accepts. Other new users get a random password and set their own through forgot password.
 
 **Controller:** `App\Http\Controllers\Internal\ContactSyncController@sync`
 
@@ -349,7 +349,10 @@ Upserts customer/user accounts. Existing users are matched by email. New users a
       "email": "jane.doe@example.com",
       "name": "Jane Doe",
       "phone": "+1-555-0100",
-      "address": "123 Main Street, Springfield, IL 62701"
+      "address": "123 Main Street, Springfield, IL 62701",
+      "contact_code": "CO0301",
+      "woo_username": "CO0301",
+      "woo_password": "CO0301$Uwd@123"
     }
   ]
 }
@@ -363,6 +366,9 @@ Upserts customer/user accounts. Existing users are matched by email. New users a
 | `contacts[].name` | string | Yes | Full name. |
 | `contacts[].phone` | string\|null | No | Phone number. On update, existing value is preserved if omitted. |
 | `contacts[].address` | string\|null | No | Address string. On update, existing value is preserved if omitted. |
+| `contacts[].contact_code` | string\|null | No | The ERP contact code (`contacts.contact_id`, e.g. `CO0301`). The customer can log in with it. |
+| `contacts[].woo_username` | string\|null | No | WooCommerce username. The customer can log in with it. |
+| `contacts[].woo_password` | string\|null | No | WooCommerce password, plain text, exactly as stored (not trimmed). When set it becomes the account's only password: the app's change-password and reset-password refuse, and forgot password emails these login details. `null` means no Woo account; the customer keeps their own password. |
 
 #### Response
 
@@ -389,10 +395,11 @@ Upserts customer/user accounts. Existing users are matched by email. New users a
 
 #### Behavior Notes
 
-- Match key: `email`
+- Match key: `erp_contact_id`, then `email`. A changed email moves the account, unless another account already has that email (a per-record error)
 - **Deleted accounts:** a contact whose email belongs to an account the user deleted in the app is skipped, without an error, until they register again
-- **Existing user:** `name`, `phone`, `address`, and `erp_contact_id` are updated. `password` is **never overwritten**
-- **New user:** created with `name`, `email`, `phone`, `address`, `erp_contact_id`, and a random 32-character hashed password. The user must go through the forgot-password flow to set their own password before logging in
+- **Existing user:** `name`, `email`, `phone`, `address`, and `erp_contact_id` are updated. `password` is only ever replaced by a changed `woo_password`
+- **New user:** created with `name`, `email`, `phone`, `address`, `erp_contact_id`, and the `woo_password` or else a random 32-character hashed password
+- **Woo login:** `woo_password` is stored encrypted and hashed into `password` only when it changed. `contact_code`, `woo_username` and `woo_password` are each left as they are when the key is omitted (older ERP modules)
 - No cache invalidation — users are not cached
 
 ---

@@ -21,6 +21,9 @@ class ContactSyncController extends Controller
             'contacts.*.name'           => ['required', 'string'],
             'contacts.*.phone'          => ['sometimes', 'nullable', 'string'],
             'contacts.*.address'        => ['sometimes', 'nullable', 'string'],
+            'contacts.*.contact_code'   => ['sometimes', 'nullable', 'string', 'max:191'],
+            'contacts.*.woo_username'   => ['sometimes', 'nullable', 'string', 'max:191'],
+            'contacts.*.woo_password'   => ['sometimes', 'nullable', 'string', 'max:255'],
         ]);
 
         $synced = 0;
@@ -34,22 +37,31 @@ class ContactSyncController extends Controller
             }
 
             try {
-                $existing = User::where('email', $data['email'])->first();
+                // The ERP contact first, so a changed email moves the account instead of making a second one.
+                $existing = User::where('erp_contact_id', $data['erp_contact_id'])->first()
+                    ?? User::where('email', $data['email'])->first();
 
                 if ($existing) {
-                    // Update existing user — never overwrite password
-                    $existing->update([
+                    if (strcasecmp($existing->email, $data['email']) !== 0
+                        && User::where('email', $data['email'])->whereKeyNot($existing->id)->exists()) {
+                        throw new \RuntimeException("The email {$data['email']} belongs to another account.");
+                    }
+
+                    // Update existing user — the password only ever changes to the Woo password
+                    $existing->fill([
                         'name'            => $data['name'],
+                        'email'           => $data['email'],
                         'phone'           => $data['phone']   ?? $existing->phone,
                         'address'         => $data['address'] ?? $existing->address,
                         'erp_contact_id'  => $data['erp_contact_id'],
                         'approval_status' => 'approved',
                         'approved_by'     => 'erp_sync',
                     ]);
+                    $user = $existing;
                 } else {
-                    // Create new user with a random password — pre-approved as ERP contact
-                    // They must use forgot password flow to set their own password
-                    User::create([
+                    // Create new user — pre-approved as ERP contact. Without a Woo password the
+                    // random one means they set their own through forgot password.
+                    $user = new User([
                         'name'            => $data['name'],
                         'email'           => $data['email'],
                         'password'        => Hash::make(Str::random(32)),
@@ -60,6 +72,9 @@ class ContactSyncController extends Controller
                         'approved_by'     => 'erp_sync',
                     ]);
                 }
+
+                $this->applyWooLogin($user, $data);
+                $user->save();
 
                 $synced++;
 
@@ -75,5 +90,39 @@ class ContactSyncController extends Controller
             'message' => "Synced {$synced} contacts",
             'errors'  => $errors,
         ]);
+    }
+
+    /**
+     * The customer's WooCommerce login. Their Woo password becomes their only password here;
+     * it is hashed again only when it changed, so a full sync stays cheap. A field the ERP
+     * didn't send (an older module) leaves the account as it is.
+     */
+    private function applyWooLogin(User $user, array $data): void
+    {
+        if (array_key_exists('contact_code', $data)) {
+            $user->erp_contact_code = $data['contact_code'];
+        }
+
+        if (array_key_exists('woo_username', $data)) {
+            $user->woo_username = $data['woo_username'];
+        }
+
+        if (! array_key_exists('woo_password', $data)) {
+            return;
+        }
+
+        $password = $data['woo_password'];
+
+        if ($password === null || $password === '') {
+            // No Woo account: the customer manages their password here, as any app user does.
+            $user->woo_password = null;
+
+            return;
+        }
+
+        if ($user->woo_password !== $password) {
+            $user->woo_password = $password;
+            $user->password = Hash::make($password);
+        }
     }
 }

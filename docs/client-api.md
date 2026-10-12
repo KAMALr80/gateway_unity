@@ -193,8 +193,8 @@ Authenticates a user and returns a JWT token. No authentication required.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `email` | string | Yes | User's email address. |
-| `password` | string | Yes | User's password. |
+| `email` | string | Yes | The user's email address. ERP customers may instead send their WooCommerce username or ERP contact code (e.g. `CO0123`). Tried in that order. |
+| `password` | string | Yes | User's password. For an ERP customer with a WooCommerce account this is their WooCommerce (website) password, the only one their account accepts. |
 
 #### Response `200`
 
@@ -305,6 +305,8 @@ Invalidates the current token.
 
 Sends a password reset link to the given email address. No authentication required.
 
+An ERP customer with a WooCommerce account gets their current username and password instead of a link, since their password can only be changed in the ERP.
+
 To prevent user enumeration, the response is always `200` regardless of whether the email is registered.
 
 #### Request Body
@@ -317,7 +319,7 @@ To prevent user enumeration, the response is always `200` regardless of whether 
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `email` | string | Yes | The email address associated with the account. |
+| `email` | string | Yes | The email address associated with the account, or an ERP customer's WooCommerce username or contact code. |
 
 #### Response `200`
 
@@ -375,6 +377,7 @@ Resets the user's password using the token received by email. No authentication 
 #### Notes
 
 - After a successful reset the user must log in again via `POST /api/auth/login`
+- An ERP customer with a WooCommerce account can't reset here: `422` with `"message": "Your password is the same as on our website and can't be changed here. Use \"Forgot password\" to have it emailed to you."`
 - The reset token is single-use and is invalidated immediately after a successful reset
 
 ---
@@ -514,6 +517,13 @@ Changes the authenticated user's password. Requires the current password for ver
   "errors": {
     "current_password": ["The current password is incorrect."]
   }
+}
+```
+
+**ERP customer with a WooCommerce account `403`** (their password can only be changed in the ERP):
+```json
+{
+  "message": "Your password is the same as on our website and can't be changed here. Use \"Forgot password\" to have it emailed to you."
 }
 ```
 

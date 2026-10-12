@@ -11,7 +11,8 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email'    => ['required', 'email'],
+            // An email, a WooCommerce username or an ERP contact code; the app sends any of them here.
+            'email'    => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
         ];
     }

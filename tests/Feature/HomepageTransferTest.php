@@ -75,7 +75,7 @@ function hpSource(string $client = 'unity'): array
     $disk->put("homepage/$client/site/old-logo.png", hpPng('logo'));
     $config = HomepageConfig::create([
         'client_key' => $client, 'label' => 'Unity Wholesale', 'is_active' => true,
-        'site_settings' => ['site_name' => 'Unity Wholesale', 'phone' => '+1 555 0100', 'nav_links' => [['label' => 'Shop', 'url' => '/shop']], 'internal_note' => 'not part of the homepage package'],
+        'site_settings' => ['site_name' => 'Unity Wholesale', 'phone' => '+1 555 0100', 'nav_links' => [['label' => 'Shop', 'url' => '/shop']], 'site_tagline' => 'Wholesale tagline', 'nav_links_before' => [['label' => 'Home', 'url' => '/']], 'all_categories' => [['label' => 'Vapes', 'url' => '/shop?category=vapes']], 'nav_groups' => [['label' => 'Vape Shop', 'keywords' => ['vape'], 'names' => ['Disposables'], 'url' => '/shop']], 'internal_note' => 'not part of the homepage package'],
         'site_logo_path' => "homepage/$client/site/old-logo.png",
     ]);
 
@@ -256,7 +256,7 @@ it('exports the selected client with business keys, a valid manifest and checksu
     expect(array_column($carousel['product_refs'], 'erp_product_id'))->toBe(['P-3', 'P-1', 'P-2'])
         ->and($carousel)->not->toHaveKey('product_ids');
     expect($homepageJson)->not->toContain('private.customer')->not->toContain('secret-hash')->not->toContain('internal_note')->not->toContain('not part of the homepage package');
-    expect($content['homepage']['site_settings'])->toHaveKeys(['site_name', 'phone'])->not->toHaveKey('internal_note');
+    expect($content['homepage']['site_settings'])->toHaveKeys(['site_name', 'phone', 'site_tagline', 'nav_links_before', 'all_categories', 'nav_groups'])->not->toHaveKey('internal_note');
 
     $zip->close();
     expect($names)->not->toContain('.env');
@@ -496,6 +496,11 @@ it('imports a package into another environment, mapping every reference to the l
         ->assertJsonPath('client', 'unity')
         ->assertJsonPath('sections.1.data.product_ids.0', $new['products']['P-3']->id)
         ->assertJsonPath('sections.0.items.0.mobile_image_url', 'https://img.example.test/m.jpg');
+    $imported = HomepageConfig::where('client_key', 'unity')->first()->site_settings;
+    expect($imported['site_tagline'])->toBe('Wholesale tagline')
+        ->and($imported['nav_links_before'][0]['label'])->toBe('Home')
+        ->and($imported['all_categories'][0]['label'])->toBe('Vapes')
+        ->and($imported['nav_groups'][0]['names'])->toBe(['Disposables']);
     $logo = HomepageConfig::where('client_key', 'unity')->first()->site_logo_path;
     expect(Storage::disk('public')->exists($logo))->toBeTrue()->and($logo)->toStartWith('homepage/unity/site/');
     $pdf = HomepageSectionItem::whereNotNull('pdf_path')->first()->pdf_path;

@@ -43,10 +43,11 @@ class OrderRequest extends FormRequest
             'shipping_postcode'     => ['required', 'string', 'max:20'],
             'shipping_country'      => ['required', 'string', 'size:2'],
 
-            // Line items
-            'items'                         => ['required', 'array', 'min:1', 'max:200'],
+            // Line items. The released Flutter app caps lines and quantities only by stock (none when stock
+            // isn't tracked), so these bounds only stop absurd values; a real wholesale order never reaches them.
+            'items'                         => ['required', 'array', 'min:1', 'max:1000'],
             'items.*.product_id'            => ['required', 'integer', 'distinct', 'exists:products,id'],
-            'items.*.quantity'              => ['required', 'integer', 'min:1', 'max:999'],
+            'items.*.quantity'              => ['required', 'integer', 'min:1', 'max:99999'],
         ];
     }
 }

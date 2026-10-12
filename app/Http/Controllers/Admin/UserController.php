@@ -29,15 +29,21 @@ class UserController extends Controller
             $query->where('approval_status', $status);
         }
 
+        // Customers who sign in with their WooCommerce login.
+        if ($request->boolean('woo')) {
+            $query->whereNotNull('woo_password');
+        }
+
         if ($request->input('is_admin') !== null && $request->input('is_admin') !== '') {
             $query->where('is_admin', filter_var($request->input('is_admin'), FILTER_VALIDATE_BOOLEAN));
         }
 
         $users = $query->latest()->paginate($perPage)->withQueryString();
+        $users->getCollection()->each->append('has_woo_login');
 
         return Inertia::render('admin/users/index', [
             'users'   => $this->paginatedData($users),
-            'filters' => $request->only(['search', 'approval_status', 'is_admin', 'per_page']),
+            'filters' => $request->only(['search', 'approval_status', 'is_admin', 'woo', 'per_page']),
         ]);
     }
 
@@ -68,6 +74,7 @@ class UserController extends Controller
     {
         $user->loadCount('orders');
         $user->load(['addresses', 'orders' => fn ($q) => $q->latest()->limit(5)]);
+        $user->append('has_woo_login');
 
         return Inertia::render('admin/users/show', [
             'user' => $user,

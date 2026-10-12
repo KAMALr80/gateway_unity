@@ -153,3 +153,26 @@ it('does not let a Woo customer set another password', function () {
 
     expect(Hash::check('CO0301$Uwd@123', $user->fresh()->password))->toBeTrue();
 });
+
+it('marks Woo customers in the admin users list and filters to them', function () {
+    syncContact();
+    User::factory()->create(['email' => 'app-only@example.test']);
+    $admin = User::factory()->create(['is_admin' => true]);
+
+    test()->actingAs($admin)->get('/admin/users')->assertOk()
+        ->assertInertia(fn ($page) => $page->component('admin/users/index')
+            ->where('users.meta.total', 3)
+            ->where('users.data', fn ($users) => collect($users)->firstWhere('email', 'buyer@example.test')['has_woo_login'] === true
+                && collect($users)->firstWhere('email', 'app-only@example.test')['has_woo_login'] === false
+                && ! collect($users)->contains(fn ($user) => array_key_exists('woo_password', $user))));
+
+    test()->actingAs($admin)->get('/admin/users?woo=1')->assertOk()
+        ->assertInertia(fn ($page) => $page->where('users.meta.total', 1)
+            ->where('users.data.0.email', 'buyer@example.test')
+            ->where('filters.woo', '1'));
+
+    test()->actingAs($admin)->get('/admin/users/'.User::where('email', 'buyer@example.test')->value('id'))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('user.has_woo_login', true)
+            ->where('user.woo_username', 'CO0301')
+            ->missing('user.woo_password'));
+});

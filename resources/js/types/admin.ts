@@ -15,6 +15,10 @@ export interface AdminUser {
     phone: string | null;
     address: string | null;
     erp_contact_id: string | null;
+    erp_contact_code: string | null;
+    woo_username: string | null;
+    /** Signs in with their WooCommerce login, the only password their account accepts. */
+    has_woo_login?: boolean;
     approval_status: 'pending' | 'approved' | 'rejected';
     is_admin: boolean;
     email_verified_at: string | null;

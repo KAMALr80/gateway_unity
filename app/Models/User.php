@@ -64,6 +64,12 @@ class User extends Authenticatable implements JWTSubject
         return $this->woo_password !== null && $this->woo_password !== '';
     }
 
+    /** hasWooLogin() as an attribute the admin pages append (woo_password itself stays hidden). */
+    protected function getHasWooLoginAttribute(): bool
+    {
+        return $this->hasWooLogin();
+    }
+
     /** The username their WooCommerce login emails show: the Woo username, else the contact code. */
     public function wooLoginName(): string
     {

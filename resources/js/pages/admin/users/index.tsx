@@ -1,10 +1,13 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Plus, Store } from 'lucide-react';
 import { DataTablePagination } from '@/components/admin/data-table';
 import { PageHeader } from '@/components/admin/page-header';
+import { WooLoginBadge } from '@/components/admin/woo-login-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
@@ -21,6 +24,7 @@ interface Filters extends Record<string, string | number | undefined> {
     search?: string;
     approval_status?: string;
     is_admin?: string;
+    woo?: string;
     per_page?: string;
 }
 
@@ -86,6 +90,17 @@ export default function UsersIndex({ users, filters }: { users: Paginated<AdminU
                             <SelectItem value="false">User</SelectItem>
                         </SelectContent>
                     </Select>
+                    <div className="flex items-center gap-2">
+                        <Checkbox
+                            id="woo"
+                            checked={filters.woo === '1'}
+                            onCheckedChange={(checked) => applyFilter('woo', checked === true ? '1' : '')}
+                        />
+                        <Label htmlFor="woo" className="flex items-center gap-1 font-normal">
+                            <Store className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                            Woo login only
+                        </Label>
+                    </div>
                 </div>
 
                 <div className="rounded-lg border bg-card">
@@ -112,7 +127,12 @@ export default function UsersIndex({ users, filters }: { users: Paginated<AdminU
                             )}
                             {users.data.map((user) => (
                                 <TableRow key={user.id}>
-                                    <TableCell className="font-medium">{user.name}</TableCell>
+                                    <TableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                            {user.name}
+                                            {user.has_woo_login && <WooLoginBadge user={user} />}
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="text-muted-foreground">{user.email}</TableCell>
                                     <TableCell className="text-muted-foreground">{user.phone ?? '—'}</TableCell>
                                     <TableCell>{approvalBadge(user.approval_status)}</TableCell>

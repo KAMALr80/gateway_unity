@@ -1,5 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { PageHeader } from '@/components/admin/page-header';
+import { WooLoginBadge } from '@/components/admin/woo-login-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -71,6 +72,18 @@ export default function UserShow({ user }: { user: AdminUser }) {
                             <Row label="Phone" value={user.phone ?? '—'} />
                             <Row label="Address" value={user.address ?? '—'} />
                             <Row label="ERP Contact ID" value={user.erp_contact_id ?? '—'} />
+                            <Row label="Contact Code" value={user.erp_contact_code ?? '—'} />
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground w-28 shrink-0">Login</span>
+                                {user.has_woo_login ? (
+                                    <span className="flex items-center gap-2 text-sm">
+                                        <WooLoginBadge user={user} />
+                                        {user.woo_username || user.erp_contact_code}
+                                    </span>
+                                ) : (
+                                    <span className="text-sm">Own password</span>
+                                )}
+                            </div>
                             <Row label="Email Verified" value={user.email_verified_at ? new Date(user.email_verified_at).toLocaleDateString() : 'Not verified'} />
                             <Row label="Role" value={user.is_admin ? 'Admin' : 'User'} />
                             <Row label="Joined" value={new Date(user.created_at).toLocaleDateString()} />

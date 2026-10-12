@@ -26,11 +26,11 @@ final class HomepageSchema
 
     /** Keys of homepage_configs.site_settings that belong to the homepage (mirrors the admin update rules). */
     public const SITE_SETTING_KEYS = [
-        'site_name', 'logo_url', 'phone', 'email', 'address', 'search_placeholder', 'login_text', 'register_text',
+        'site_name', 'site_tagline', 'logo_url', 'phone', 'email', 'address', 'search_placeholder', 'login_text', 'register_text',
         'sale_label', 'sale_url', 'newsletter_enabled', 'newsletter_title', 'newsletter_placeholder',
         'newsletter_button_text', 'seo_title', 'seo_description', 'homepage_heading', 'catalog_background_logo_url',
         'footer_copyright', 'footer_legal_notice', 'business_hours_title', 'nav_groups', 'footer_columns',
-        'utility_message', 'utility_links', 'nav_links', 'business_hours',
+        'utility_message', 'utility_links', 'nav_links', 'nav_links_before', 'all_categories', 'business_hours',
     ];
 
     /** Plain (non-reference) keys of homepage_sections.settings per section type. */
@@ -57,6 +57,7 @@ final class HomepageSchema
         return [
             "$prefix" => 'array',
             "$prefix.site_name" => 'nullable|string|max:255',
+            "$prefix.site_tagline" => 'nullable|string|max:255',
             "$prefix.logo_url" => 'nullable|url:http,https|max:2048',
             "$prefix.phone" => 'nullable|string|max:40',
             "$prefix.email" => 'nullable|email|max:255',
@@ -82,6 +83,8 @@ final class HomepageSchema
             "$prefix.nav_groups.*.keywords" => 'array|max:30',
             "$prefix.nav_groups.*.keywords.*" => 'string|max:80',
             "$prefix.nav_groups.*.url" => 'nullable|string|max:2048',
+            "$prefix.nav_groups.*.names" => 'array|max:100',
+            "$prefix.nav_groups.*.names.*" => 'string|max:120',
             "$prefix.footer_columns" => 'array|max:8',
             "$prefix.footer_columns.*.title" => 'required|string|max:80',
             "$prefix.footer_columns.*.links" => 'array|max:30',
@@ -94,6 +97,12 @@ final class HomepageSchema
             "$prefix.nav_links" => 'array|max:12',
             "$prefix.nav_links.*.label" => 'required|string|max:80',
             "$prefix.nav_links.*.url" => 'required|string|max:2048',
+            "$prefix.nav_links_before" => 'array|max:12',
+            "$prefix.nav_links_before.*.label" => 'required|string|max:80',
+            "$prefix.nav_links_before.*.url" => 'required|string|max:2048',
+            "$prefix.all_categories" => 'array|max:40',
+            "$prefix.all_categories.*.label" => 'required|string|max:80',
+            "$prefix.all_categories.*.url" => 'required|string|max:2048',
             "$prefix.business_hours" => 'array|max:14',
             "$prefix.business_hours.*" => 'string|max:120',
         ];

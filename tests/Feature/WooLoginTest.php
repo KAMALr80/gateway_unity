@@ -104,17 +104,33 @@ it('leaves the login alone when an older ERP module sends no Woo fields', functi
         ->and($user->hasWooLogin())->toBeTrue();
 });
 
-it('moves the account when the ERP contact\'s email changes, unless another account has that email', function () {
+it('moves the account when the ERP contact\'s email changes', function () {
     syncContact();
 
     syncContact(['email' => 'new@example.test']);
+
     expect(User::where('erp_contact_id', 301)->value('email'))->toBe('new@example.test')
         ->and(User::count())->toBe(1);
+    loginAs('new@example.test', 'CO0301$Uwd@123')->assertOk();
+});
 
-    User::factory()->create(['email' => 'taken@example.test']);
-    syncContact(['email' => 'taken@example.test'])
-        ->assertJsonPath('errors.0.erp_contact_id', 301);
-    expect(User::where('erp_contact_id', 301)->value('email'))->toBe('new@example.test');
+// Live case: contact UC019-2's email changed to one that already had its own account (linked to another contact).
+it('gives the contact to the account that has its new email, and unlinks the old one', function () {
+    syncContact(['email' => 'old@example.test']);
+    $old = User::where('email', 'old@example.test')->first();
+    $owner = User::factory()->create(['email' => 'taken@example.test', 'erp_contact_id' => 999]);
+
+    syncContact(['email' => 'taken@example.test'])->assertJsonPath('errors', []);
+
+    expect($owner->fresh())
+        ->erp_contact_id->toBe(301)
+        ->woo_username->toBe('CO0301')
+        ->and($old->fresh())
+        ->erp_contact_id->toBeNull()
+        ->woo_username->toBeNull()
+        ->erp_contact_code->toBeNull();
+    expect($old->fresh()->hasWooLogin())->toBeFalse();
+    loginAs('CO0301', 'CO0301$Uwd@123')->assertOk()->assertJsonPath('user.email', 'taken@example.test');
 });
 
 it('emails a Woo customer their login details instead of a reset link', function () {

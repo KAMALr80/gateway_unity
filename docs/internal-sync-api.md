@@ -335,7 +335,7 @@ Groups are modelled as a parent product with `type = "grouped"` and a string ERP
 
 ### POST /internal/contacts/sync
 
-Upserts customer/user accounts. Existing users are matched by `erp_contact_id`, then by email. A customer with a WooCommerce account signs in with their WooCommerce login (`woo_password`), which is the only password their account accepts. Other new users get a random password and set their own through forgot password.
+Upserts customer/user accounts. Existing users are matched by email, then by `erp_contact_id`. A customer with a WooCommerce account signs in with their WooCommerce login (`woo_password`), which is the only password their account accepts. Other new users get a random password and set their own through forgot password.
 
 **Controller:** `App\Http\Controllers\Internal\ContactSyncController@sync`
 
@@ -395,7 +395,7 @@ Upserts customer/user accounts. Existing users are matched by `erp_contact_id`, 
 
 #### Behavior Notes
 
-- Match key: `erp_contact_id`, then `email`. A changed email moves the account, unless another account already has that email (a per-record error)
+- Match key: `email`, then `erp_contact_id`. A changed email moves the contact's account. If the new email already has its own account, that account takes the contact, and the account still linked to it is unlinked (`erp_contact_id`, `erp_contact_code` and the Woo login cleared), so a contact never has two accounts
 - **Deleted accounts:** a contact whose email belongs to an account the user deleted in the app is skipped, without an error, until they register again
 - **Existing user:** `name`, `email`, `phone`, `address`, and `erp_contact_id` are updated. `password` is only ever replaced by a changed `woo_password`
 - **New user:** created with `name`, `email`, `phone`, `address`, `erp_contact_id`, and the `woo_password` or else a random 32-character hashed password

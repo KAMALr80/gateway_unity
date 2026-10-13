@@ -7,6 +7,7 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\WishlistItem;
+use App\Services\CacheService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -21,14 +22,14 @@ class ProductController extends Controller
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%");
             });
         }
 
         if ($categoryId = $request->input('category_id')) {
             $query->where(function ($q) use ($categoryId) {
                 $q->where('category_id', $categoryId)
-                  ->orWhere('sub_category_id', $categoryId);
+                    ->orWhere('sub_category_id', $categoryId);
             });
         }
 
@@ -44,6 +45,10 @@ class ProductController extends Controller
             $query->where('in_stock', filter_var($request->input('in_stock'), FILTER_VALIDATE_BOOLEAN));
         }
 
+        if ($request->input('is_featured') !== null && $request->input('is_featured') !== '') {
+            $query->where('is_featured', filter_var($request->input('is_featured'), FILTER_VALIDATE_BOOLEAN));
+        }
+
         if ($request->input('is_active') !== null && $request->input('is_active') !== '') {
             $query->where('is_active', filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN));
         }
@@ -54,11 +59,25 @@ class ProductController extends Controller
         $brands = Brand::orderBy('name')->get(['id', 'name']);
 
         return Inertia::render('admin/products/index', [
-            'products'   => $this->paginatedData($products),
+            'products' => $this->paginatedData($products),
             'categories' => $categories,
-            'brands'     => $brands,
-            'filters'    => $request->only(['search', 'category_id', 'brand_id', 'type', 'in_stock', 'is_active', 'per_page']),
+            'brands' => $brands,
+            'filters' => $request->only(['search', 'category_id', 'brand_id', 'type', 'in_stock', 'is_active', 'is_featured', 'per_page']),
         ]);
+    }
+
+    /**
+     * Adds the product to, or removes it from, the storefront's featured products. Only this flag changes;
+     * everything else about a product comes from the ERP.
+     */
+    public function updateFeatured(Request $request, Product $product, CacheService $cache)
+    {
+        $validated = $request->validate(['is_featured' => ['required', 'boolean']]);
+
+        $product->forceFill(['is_featured' => $validated['is_featured']])->save();
+        $cache->invalidateProduct($product->id); // also drops every cached product list
+
+        return back()->with('success', $product->is_featured ? 'Added to featured products.' : 'Removed from featured products.');
     }
 
     public function show(Product $product)
@@ -75,7 +94,7 @@ class ProductController extends Controller
         $wishlistCount = WishlistItem::where('product_id', $product->id)->count();
 
         return Inertia::render('admin/products/show', [
-            'product'       => $product,
+            'product' => $product,
             'wishlistCount' => $wishlistCount,
         ]);
     }

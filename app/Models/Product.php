@@ -45,13 +45,14 @@ class Product extends Model
     }
 
     protected $casts = [
-        'regular_price'  => 'decimal:2',
-        'sale_price'     => 'decimal:2',
-        'manage_stock'   => 'boolean',
-        'in_stock'       => 'boolean',
-        'is_active'      => 'boolean',
-        'attributes'     => 'array',
-        'synced_at'      => 'datetime',
+        'regular_price' => 'decimal:2',
+        'sale_price' => 'decimal:2',
+        'manage_stock' => 'boolean',
+        'in_stock' => 'boolean',
+        'is_active' => 'boolean',
+        'is_featured' => 'boolean',
+        'attributes' => 'array',
+        'synced_at' => 'datetime',
     ];
 
     // Current active price — sale price if set, otherwise regular price
@@ -62,7 +63,7 @@ class Product extends Model
 
     public function isOnSale(): bool
     {
-        return !is_null($this->sale_price) && $this->sale_price < $this->regular_price;
+        return ! is_null($this->sale_price) && $this->sale_price < $this->regular_price;
     }
 
     public function parent(): BelongsTo
@@ -73,7 +74,7 @@ class Product extends Model
     public function children(): HasMany
     {
         return $this->hasMany(Product::class, 'parent_id')
-                    ->where('is_active', true);
+            ->where('is_active', true);
     }
 
     public function category(): BelongsTo

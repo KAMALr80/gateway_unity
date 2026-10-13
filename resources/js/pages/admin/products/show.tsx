@@ -79,6 +79,16 @@ export default function ProductShow({
                                             : ''
                                     }
                                 />
+                                {product.parent_id && product.is_featured && (
+                                    <p className="-mt-4 text-sm text-muted-foreground">
+                                        This is a variant: the featured page
+                                        shows its parent product
+                                        {product.parent
+                                            ? ` (${product.parent.name})`
+                                            : ''}
+                                        .
+                                    </p>
+                                )}
                                 {product.is_featured
                                     ? 'Featured'
                                     : 'Mark as featured'}

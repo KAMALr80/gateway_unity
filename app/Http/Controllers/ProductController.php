@@ -97,8 +97,12 @@ class ProductController extends Controller
         }
 
         // The storefront's "Feature Product" page (?featured=1).
+        // A featured variant puts its parent product on the page, because variants are listed under their parent.
         if ($request->boolean('featured')) {
-            $query->where('is_featured', true);
+            $query->where(function ($q) {
+                $q->where('is_featured', true)
+                    ->orWhereIn('id', Product::query()->select('parent_id')->where('is_featured', true)->whereNotNull('parent_id'));
+            });
         }
 
         $includeChildren = filter_var($request->input('include_children', false), FILTER_VALIDATE_BOOLEAN);

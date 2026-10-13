@@ -53,3 +53,13 @@ it('keeps the featured flag when the ERP syncs the product again', function () {
         ->name->toBe('Featured pipe (renamed)')
         ->is_featured->toBeTrue();
 });
+
+it('shows the parent product when one of its variants is featured', function () {
+    $parent = Product::create(['name' => 'Soda case', 'type' => 'grouped', 'regular_price' => 10, 'is_active' => true, 'in_stock' => true, 'erp_product_id' => 'P-3']);
+    $variant = Product::create(['name' => 'Soda case - Kiwi', 'parent_id' => $parent->id, 'regular_price' => 10, 'is_active' => true, 'in_stock' => true, 'erp_product_id' => 'P-4']);
+    $variant->forceFill(['is_featured' => true])->save();
+
+    $names = collect($this->getJson('/api/products?featured=1')->assertOk()->json('data'))->pluck('name')->all();
+
+    expect($names)->toContain('Soda case', 'Featured pipe')->not->toContain('Soda case - Kiwi', 'Plain paper');
+});

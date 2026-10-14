@@ -168,7 +168,7 @@ export default function ProductsIndex({
                             <SelectValue placeholder="Status" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="__all__">All</SelectItem>
+                            <SelectItem value="__all__">Any status</SelectItem>
                             <SelectItem value="true">Active</SelectItem>
                             <SelectItem value="false">Inactive</SelectItem>
                         </SelectContent>
@@ -179,14 +179,14 @@ export default function ProductsIndex({
                             applyFilter('is_featured', v === '__all__' ? '' : v)
                         }
                     >
-                        <SelectTrigger className="h-9 w-36">
+                        <SelectTrigger className="h-9 w-40">
                             <SelectValue placeholder="Featured" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="__all__">
-                                All products
+                                Featured: any
                             </SelectItem>
-                            <SelectItem value="true">Featured</SelectItem>
+                            <SelectItem value="true">Featured only</SelectItem>
                             <SelectItem value="false">Not featured</SelectItem>
                         </SelectContent>
                     </Select>
@@ -196,15 +196,15 @@ export default function ProductsIndex({
                             applyFilter('best_seller', v === '__all__' ? '' : v)
                         }
                     >
-                        <SelectTrigger className="h-9 w-40">
+                        <SelectTrigger className="h-9 w-44">
                             <SelectValue placeholder="Best sellers" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="__all__">
-                                All products
+                                Best sellers: any
                             </SelectItem>
                             <SelectItem value="true">
-                                Best sellers (by rank)
+                                Best sellers only (by rank)
                             </SelectItem>
                             <SelectItem value="false">
                                 Not best sellers

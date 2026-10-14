@@ -97,6 +97,8 @@ export interface AdminProduct {
     stock_quantity: number | null;
     in_stock: boolean;
     is_active: boolean;
+    is_featured: boolean;
+    best_seller_rank: number | null;
     attributes: Record<string, unknown> | null;
     synced_at: string | null;
     category?: AdminCategory | null;

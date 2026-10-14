@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Media;
 use GdImage;
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -18,6 +19,10 @@ use RuntimeException;
  * and a changed source URL gives new URLs, which makes the files safe to cache as immutable. The first
  * request for a source downloads it once and writes every size; later requests read the stored files.
  * Originals are never modified or deleted.
+ *
+ * Generated files live on the public disk, and once they exist the API hands out their plain /storage URLs, so the
+ * web server sends them as static files without starting PHP. Until then the URL points at /api/media, which
+ * generates the files on first use.
  */
 class MediaThumbnails
 {
@@ -31,9 +36,13 @@ class MediaThumbnails
         }
 
         $key = $this->key($media->public_url);
+        // All sizes are written together, so the largest one existing means every static file is there.
+        $static = $this->disk()->exists($this->path($key, max($this->sizes())));
         $variants = [];
         foreach ($this->sizes() as $size) {
-            $variants[(string) $size] = url("/api/media/{$media->id}/{$key}/{$size}.webp");
+            $variants[(string) $size] = $static
+                ? url($this->disk()->url($this->path($key, $size)))
+                : url("/api/media/{$media->id}/{$key}/{$size}.webp");
         }
         $variants['original'] = $media->public_url;
 
@@ -82,8 +91,8 @@ class MediaThumbnails
         }
 
         $key = $this->key($source);
-        $disk = Storage::disk('local');
-        if ($disk->exists($this->path($key, $size))) {
+        $disk = $this->disk();
+        if ($disk->exists($this->path($key, $size)) || $this->adoptLegacyFiles($key)) {
             return $disk->path($this->path($key, $size));
         }
 
@@ -121,10 +130,36 @@ class MediaThumbnails
         return function_exists('imagecreatefromstring') && function_exists('imagewebp');
     }
 
+    /** Where variants are stored and served from (public, so /storage can serve them as static files). */
+    public function disk(): Filesystem
+    {
+        return Storage::disk(config('media.thumbnails.disk', 'public'));
+    }
+
+    /**
+     * Variants made before they were stored publicly sit on the private local disk. Copy them over once instead
+     * of downloading the source again. True when every size is now on the public disk.
+     */
+    private function adoptLegacyFiles(string $key): bool
+    {
+        $legacy = Storage::disk('local');
+        if (config('media.thumbnails.disk', 'public') === 'local' || ! $legacy->exists($this->path($key, max($this->sizes())))) {
+            return false;
+        }
+        foreach ($this->sizes() as $size) {
+            if (! $legacy->exists($this->path($key, $size))) {
+                return false;
+            }
+            $this->disk()->put($this->path($key, $size), $legacy->get($this->path($key, $size)));
+        }
+
+        return true;
+    }
+
     private function generate(string $source, string $key): void
     {
         $image = $this->decode($this->download($source));
-        $disk = Storage::disk('local');
+        $disk = $this->disk();
 
         foreach ($this->sizes() as $size) {
             $disk->put($this->path($key, $size), $this->encode($image, $size));

@@ -2,8 +2,10 @@
 
 use App\Models\Media;
 use App\Models\Product;
+use App\Models\User;
 use App\Services\MediaThumbnails;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -40,6 +42,7 @@ function variantPath(Product $product, string $size): string
 
 beforeEach(function () {
     Storage::fake('local');
+    Storage::fake('public');
     config(['media.thumbnails.source_hosts' => ['erp.centralsmokedistro.com']]);
 });
 
@@ -93,7 +96,7 @@ test('variant falls back to the original when the source cannot be used', functi
     // the failure is remembered: no second download attempt
     $this->get(variantPath($product, '256'))->assertRedirect(ERP_IMAGE);
     Http::assertSentCount(1);
-    expect(Storage::disk('local')->allFiles())->toBe([]);
+    expect(Storage::disk('public')->allFiles())->toBe([]);
 })->with([
     'server error' => fn () => fn () => Http::response('down', 500),
     'not an image' => fn () => fn () => Http::response('<html>', 200, ['Content-Type' => 'text/html']),
@@ -140,5 +143,65 @@ test('warm command pre-generates variants for primary product images', function 
     variantProduct('https://example.com/skip.png');
 
     $this->artisan('media:warm-variants')->expectsOutputToContain('Variants ready: 1, failed: 0, skipped (not eligible): 1')->assertSuccessful();
-    expect(Storage::disk('local')->allFiles())->toHaveCount(4);
+    expect(Storage::disk('public')->allFiles())->toHaveCount(4);
+});
+
+test('warm command does featured products and best sellers first, and --priority-only stops there', function () {
+    $plainUrl = 'https://erp.centralsmokedistro.com/uploads/img/plain.png';
+    $featuredUrl = 'https://erp.centralsmokedistro.com/uploads/img/featured.png';
+    $rankedUrl = 'https://erp.centralsmokedistro.com/uploads/img/ranked.png';
+    Http::fake(['erp.centralsmokedistro.com/*' => Http::response(pngBytes(300, 300), 200, ['Content-Type' => 'image/png'])]);
+
+    variantProduct($plainUrl); // lowest id: would come first in plain id order
+    variantProduct($featuredUrl)->forceFill(['is_featured' => true])->save();
+    variantProduct($rankedUrl)->forceFill(['best_seller_rank' => 1])->save();
+
+    $this->artisan('media:warm-variants --limit=2')->expectsOutputToContain('Variants ready: 2')->assertSuccessful();
+    Http::assertSent(fn ($request) => $request->url() === $featuredUrl);
+    Http::assertSent(fn ($request) => $request->url() === $rankedUrl);
+    Http::assertNotSent(fn ($request) => $request->url() === $plainUrl);
+
+    $this->artisan('media:warm-variants --priority-only')->expectsOutputToContain('Variants ready: 2')->assertSuccessful();
+    Http::assertNotSent(fn ($request) => $request->url() === $plainUrl);
+});
+
+test('marking a product featured or best seller prepares its image right away', function () {
+    Http::fake([ERP_IMAGE => Http::response(pngBytes(300, 300), 200, ['Content-Type' => 'image/png'])]);
+    $product = variantProduct();
+    $admin = User::factory()->create(['is_admin' => true]);
+
+    $this->actingAs($admin)->patch("/admin/products/{$product->id}/featured", ['is_featured' => true])->assertRedirect();
+
+    expect(Storage::disk('public')->allFiles())->toHaveCount(4); // 64, 256, 512, 1024
+});
+
+test('once generated, variants are handed out as static /storage files', function () {
+    Http::fake([ERP_IMAGE => Http::response(pngBytes(400, 400), 200, ['Content-Type' => 'image/png'])]);
+    $product = variantProduct();
+
+    expect($this->getJson("/api/products/{$product->id}")->json('image_variants.256'))->toContain('/api/media/');
+
+    $this->get(variantPath($product, '256'))->assertOk(); // first use generates every size
+    Cache::flush(); // cached product responses keep the /api/media URL until they expire
+
+    $variants = $this->getJson("/api/products/{$product->id}")->json('image_variants');
+    expect($variants['256'])->toContain('/storage/media-thumbs/')->toEndWith('/256.webp')
+        ->and($variants['1024'])->toEndWith('/1024.webp')
+        ->and($variants['original'])->toBe(ERP_IMAGE);
+});
+
+test('variants made before the move to public storage are reused, not downloaded again', function () {
+    Http::fake();
+    $product = variantProduct();
+    $thumbnails = app(MediaThumbnails::class);
+    $key = $thumbnails->key(ERP_IMAGE);
+    foreach ($thumbnails->sizes() as $size) {
+        Storage::disk('local')->put($thumbnails->path($key, $size), 'old-'.$size);
+    }
+
+    $this->artisan('media:warm-variants')->expectsOutputToContain('Variants ready: 1')->assertSuccessful();
+
+    Http::assertNothingSent();
+    expect(Storage::disk('public')->get($thumbnails->path($key, 64)))->toBe('old-64')
+        ->and($this->getJson("/api/products/{$product->id}")->json('image_variants.64'))->toContain('/storage/media-thumbs/');
 });

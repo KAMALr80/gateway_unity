@@ -35,10 +35,16 @@ return [
         ],
     ],
 
+    // The storefront endpoint that drops its cached homepage (see FrontendRevalidator). The storefront address is
+    // app.frontend_url (FRONTEND_URL); the secret must equal REVALIDATE_SECRET on the storefront.
+    'frontend' => [
+        'revalidate_secret' => env('FRONTEND_REVALIDATE_SECRET'),
+    ],
+
     'erp' => [
         'order_webhook_url' => env('ERP_ORDER_WEBHOOK_URL'),
-        'webhook_secret'    => env('ERP_WEBHOOK_SECRET'),
-        'internal_key'      => env('INTERNAL_API_KEY'),
+        'webhook_secret' => env('ERP_WEBHOOK_SECRET'),
+        'internal_key' => env('INTERNAL_API_KEY'),
     ],
 
 ];

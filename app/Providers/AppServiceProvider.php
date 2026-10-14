@@ -3,6 +3,12 @@
 namespace App\Providers;
 
 use App\Auth\JwtGuard;
+use App\Events\HomepageImported;
+use App\Events\HomepageRestored;
+use App\Models\HomepageConfig;
+use App\Models\HomepageSection;
+use App\Models\HomepageSectionItem;
+use App\Services\FrontendRevalidator;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -11,9 +17,10 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
@@ -23,7 +30,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(FrontendRevalidator::class);
     }
 
     /**
@@ -35,6 +42,23 @@ class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->configureJwtGuard();
         $this->configurePasswordResetLinks();
+        $this->configureStorefrontRefresh();
+    }
+
+    /**
+     * Any change to the homepage (admin edits, imports, restores) makes the storefront drop its cached copy,
+     * so edits show up at once instead of after the storefront's 5 minute cache.
+     */
+    protected function configureStorefrontRefresh(): void
+    {
+        $refresh = fn () => app(FrontendRevalidator::class)->queue();
+
+        foreach ([HomepageConfig::class, HomepageSection::class, HomepageSectionItem::class] as $model) {
+            $model::saved($refresh);
+            $model::deleted($refresh);
+        }
+
+        Event::listen([HomepageImported::class, HomepageRestored::class], $refresh);
     }
 
     /**

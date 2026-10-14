@@ -25,6 +25,8 @@ return [
         ))),
 
         'directory' => 'media-thumbs',
+        // Public disk: generated files are served as static /storage files (needs `php artisan storage:link`).
+        'disk' => env('MEDIA_THUMBNAIL_DISK', 'public'),
         'quality' => 80,
 
         'max_source_bytes' => 15 * 1024 * 1024,

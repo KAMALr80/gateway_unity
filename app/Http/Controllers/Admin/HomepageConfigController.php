@@ -9,6 +9,7 @@ use App\Models\HomepageConfig;
 use App\Models\HomepageSection;
 use App\Models\HomepageSectionItem;
 use App\Models\Product;
+use App\Services\FrontendRevalidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -287,6 +288,8 @@ class HomepageConfigController extends Controller
                 HomepageSection::where('id', $item['id'])->update(['sort_order' => $item['sort_order']]);
             }
         }
+        // A query-builder update raises no model events, so ask for the storefront refresh explicitly.
+        app(FrontendRevalidator::class)->queue();
 
         return back()->with('success', 'Order saved.');
     }

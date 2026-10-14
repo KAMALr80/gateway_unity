@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Brand;
 use App\Models\Category;
+use App\Models\Media;
 use App\Models\Product;
 use App\Models\WishlistItem;
 use App\Services\CacheService;
+use App\Services\MediaThumbnails;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -81,6 +83,9 @@ class ProductController extends Controller
         $validated = $request->validate(['is_featured' => ['required', 'boolean']]);
 
         $product->forceFill(['is_featured' => $validated['is_featured']])->save();
+        if ($product->is_featured) {
+            $this->warmImagesAfterResponse($product);
+        }
         $cache->invalidateProduct($product->id); // also drops every cached product list
 
         return back()->with('success', $product->is_featured ? 'Added to featured products.' : 'Removed from featured products.');
@@ -103,6 +108,9 @@ class ProductController extends Controller
         }
 
         $product->forceFill(['best_seller_rank' => $rank])->save();
+        if ($rank) {
+            $this->warmImagesAfterResponse($product);
+        }
         $cache->invalidateProduct($product->id); // also drops every cached product list
 
         return back()->with('success', $rank ? "Best seller rank #{$rank}." : 'Removed from best sellers.');
@@ -125,5 +133,25 @@ class ProductController extends Controller
             'product' => $product,
             'wishlistCount' => $wishlistCount,
         ]);
+    }
+
+    /**
+     * A product just put on the Featured or Best Sellers page gets its image sizes made right after the response,
+     * so shoppers do not wait for the first, slow download from the ERP host. The listing shows a variant's parent.
+     */
+    private function warmImagesAfterResponse(Product $product): void
+    {
+        $ids = array_values(array_filter([$product->id, $product->parent_id]));
+
+        dispatch(function () use ($ids) {
+            $thumbnails = app(MediaThumbnails::class);
+            if (! $thumbnails->canEncode()) {
+                return;
+            }
+            $largest = max($thumbnails->sizes());
+            Media::query()->where('mediable_type', Product::class)->whereIn('mediable_id', $ids)->where('is_primary', true)->get()
+                ->filter(fn (Media $media) => $thumbnails->eligible($media->public_url))
+                ->each(fn (Media $media) => $thumbnails->resolve($media, $largest));
+        })->afterResponse();
     }
 }

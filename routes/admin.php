@@ -30,6 +30,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'verified', 'admin']
     Route::get('products', [ProductController::class, 'index'])->name('products.index');
     Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
     Route::patch('products/{product}/featured', [ProductController::class, 'updateFeatured'])->name('products.featured');
+    Route::patch('products/{product}/best-seller', [ProductController::class, 'updateBestSeller'])->name('products.best-seller');
 
     Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('orders/{order}', [OrderController::class, 'show'])->name('orders.show');

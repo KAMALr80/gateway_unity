@@ -1,9 +1,10 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Heart, Star } from 'lucide-react';
+import { Heart, Star, Trophy } from 'lucide-react';
 import { PageHeader } from '@/components/admin/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
     Table,
     TableBody,
@@ -49,6 +50,13 @@ export default function ProductShow({
         product.regular_price !== null &&
         parseFloat(product.sale_price) < parseFloat(product.regular_price);
 
+    const setBestSeller = (bestSeller: boolean, rank?: number) =>
+        router.patch(
+            adminRoutes.products.bestSeller(product.id).url,
+            { best_seller: bestSeller, rank: rank ?? null },
+            { preserveScroll: true },
+        );
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${product.name} — Admin`} />
@@ -93,6 +101,48 @@ export default function ProductShow({
                                     ? 'Featured'
                                     : 'Mark as featured'}
                             </Button>
+                            <Button
+                                variant={
+                                    product.best_seller_rank !== null
+                                        ? 'default'
+                                        : 'outline'
+                                }
+                                size="sm"
+                                onClick={() =>
+                                    setBestSeller(
+                                        product.best_seller_rank === null,
+                                    )
+                                }
+                            >
+                                <Trophy />
+                                {product.best_seller_rank !== null
+                                    ? `Best seller #${product.best_seller_rank}`
+                                    : 'Mark as best seller'}
+                            </Button>
+                            {product.best_seller_rank !== null && (
+                                <Input
+                                    key={product.best_seller_rank}
+                                    type="number"
+                                    min={1}
+                                    max={9999}
+                                    defaultValue={product.best_seller_rank}
+                                    aria-label="Best seller rank"
+                                    title="Rank on the Best Sellers page (1 = first). Press Enter to save."
+                                    className="h-8 w-20"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            const rank = Number(
+                                                (e.target as HTMLInputElement)
+                                                    .value,
+                                            );
+
+                                            if (rank >= 1) {
+                                                setBestSeller(true, rank);
+                                            }
+                                        }
+                                    }}
+                                />
+                            )}
                             {typeBadge(product.type)}
                             {product.is_active ? (
                                 <Badge className="border-green-200 bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">

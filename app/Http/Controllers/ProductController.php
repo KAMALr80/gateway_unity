@@ -21,6 +21,7 @@ class ProductController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1'],
             'search' => ['nullable', 'string'],
             'featured' => ['nullable', 'boolean'],
+            'best_seller' => ['nullable', 'boolean'],
         ]);
 
         $showPrices = $this->canSeePrices();
@@ -37,6 +38,7 @@ class ProductController extends Controller
                 'type',
                 'in_stock',
                 'featured',
+                'best_seller',
                 'search',
                 'include_children',
                 'sort',
@@ -146,8 +148,14 @@ class ProductController extends Controller
             });
         }
 
+        // The storefront's "Best Sellers" page (?best_seller=1): ranked products, a ranked variant counting for its parent.
+        if ($request->boolean('best_seller')) {
+            $query->whereIn('id', array_keys($this->bestSellerRanks()));
+        }
+
         // Sorting
         match ($request->get('sort', 'default')) {
+            'best_selling' => $this->orderByBestSellerRank($query),
             'price_asc' => $query->orderByRaw('COALESCE(sale_price, regular_price) ASC'),
             'price_desc' => $query->orderByRaw('COALESCE(sale_price, regular_price) DESC'),
             'newest' => $query->orderBy('created_at', 'desc'),
@@ -294,5 +302,34 @@ class ProductController extends Controller
         $user = auth('api')->user();
 
         return $user && $user->approval_status === 'approved';
+    }
+
+    /**
+     * Best-seller rank per listed product id (1 = best). A ranked variant gives its parent its rank, because variants
+     * are listed under their parent; the best rank wins.
+     *
+     * @return array<int, int>
+     */
+    private function bestSellerRanks(): array
+    {
+        $ranks = [];
+        foreach (Product::query()->whereNotNull('best_seller_rank')->get(['id', 'parent_id', 'best_seller_rank']) as $product) {
+            $id = (int) ($product->parent_id ?? $product->id);
+            $ranks[$id] = min($ranks[$id] ?? PHP_INT_MAX, (int) $product->best_seller_rank);
+        }
+        asort($ranks);
+
+        return $ranks;
+    }
+
+    /** Ranked best sellers first, in rank order, then everything else by name. */
+    private function orderByBestSellerRank($query): void
+    {
+        $ranks = array_slice($this->bestSellerRanks(), 0, 500, true);
+        if ($ranks !== []) {
+            $cases = implode(' ', array_map(fn (int $id, int $rank) => "WHEN {$id} THEN {$rank}", array_keys($ranks), $ranks));
+            $query->orderByRaw("CASE id {$cases} ELSE 2147483647 END");
+        }
+        $query->orderBy('name');
     }
 }

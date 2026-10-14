@@ -49,6 +49,12 @@ class ProductController extends Controller
             $query->where('is_featured', filter_var($request->input('is_featured'), FILTER_VALIDATE_BOOLEAN));
         }
 
+        if ($request->input('best_seller') !== null && $request->input('best_seller') !== '') {
+            filter_var($request->input('best_seller'), FILTER_VALIDATE_BOOLEAN)
+                ? $query->whereNotNull('best_seller_rank')->reorder('best_seller_rank')
+                : $query->whereNull('best_seller_rank');
+        }
+
         if ($request->input('is_active') !== null && $request->input('is_active') !== '') {
             $query->where('is_active', filter_var($request->input('is_active'), FILTER_VALIDATE_BOOLEAN));
         }
@@ -62,7 +68,7 @@ class ProductController extends Controller
             'products' => $this->paginatedData($products),
             'categories' => $categories,
             'brands' => $brands,
-            'filters' => $request->only(['search', 'category_id', 'brand_id', 'type', 'in_stock', 'is_active', 'is_featured', 'per_page']),
+            'filters' => $request->only(['search', 'category_id', 'brand_id', 'type', 'in_stock', 'is_active', 'is_featured', 'best_seller', 'per_page']),
         ]);
     }
 
@@ -78,6 +84,28 @@ class ProductController extends Controller
         $cache->invalidateProduct($product->id); // also drops every cached product list
 
         return back()->with('success', $product->is_featured ? 'Added to featured products.' : 'Removed from featured products.');
+    }
+
+    /**
+     * Adds the product to the Best Sellers page (at the given rank, or after the last one), changes its rank, or
+     * removes it. Only this rank changes; everything else about a product comes from the ERP.
+     */
+    public function updateBestSeller(Request $request, Product $product, CacheService $cache)
+    {
+        $validated = $request->validate([
+            'best_seller' => ['required', 'boolean'],
+            'rank' => ['nullable', 'integer', 'min:1', 'max:9999'],
+        ]);
+
+        $rank = null;
+        if ($validated['best_seller']) {
+            $rank = $validated['rank'] ?? $product->best_seller_rank ?? ((int) Product::max('best_seller_rank') + 1);
+        }
+
+        $product->forceFill(['best_seller_rank' => $rank])->save();
+        $cache->invalidateProduct($product->id); // also drops every cached product list
+
+        return back()->with('success', $rank ? "Best seller rank #{$rank}." : 'Removed from best sellers.');
     }
 
     public function show(Product $product)

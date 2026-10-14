@@ -51,6 +51,7 @@ class Product extends Model
         'in_stock' => 'boolean',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
+        'best_seller_rank' => 'integer',
         'attributes' => 'array',
         'synced_at' => 'datetime',
     ];

@@ -38,6 +38,7 @@ interface Filters extends Record<string, string | number | undefined> {
     in_stock?: string;
     is_active?: string;
     is_featured?: string;
+    best_seller?: string;
     per_page?: string;
 }
 
@@ -189,6 +190,27 @@ export default function ProductsIndex({
                             <SelectItem value="false">Not featured</SelectItem>
                         </SelectContent>
                     </Select>
+                    <Select
+                        value={filters.best_seller || '__all__'}
+                        onValueChange={(v) =>
+                            applyFilter('best_seller', v === '__all__' ? '' : v)
+                        }
+                    >
+                        <SelectTrigger className="h-9 w-40">
+                            <SelectValue placeholder="Best sellers" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="__all__">
+                                All products
+                            </SelectItem>
+                            <SelectItem value="true">
+                                Best sellers (by rank)
+                            </SelectItem>
+                            <SelectItem value="false">
+                                Not best sellers
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <div className="rounded-lg border bg-card">
@@ -242,6 +264,14 @@ export default function ProductsIndex({
                                                 className="mr-1 inline size-3.5 fill-amber-400 text-amber-500"
                                                 aria-label="Featured"
                                             />
+                                        )}
+                                        {product.best_seller_rank !== null && (
+                                            <Badge
+                                                variant="outline"
+                                                className="mr-1 border-amber-300 px-1.5 py-0 text-[10px] text-amber-700"
+                                            >
+                                                #{product.best_seller_rank}
+                                            </Badge>
                                         )}
                                         {product.name}
                                     </TableCell>

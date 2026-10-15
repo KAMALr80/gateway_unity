@@ -165,6 +165,16 @@ export default function ProductShow({
                             <CardContent className="space-y-3">
                                 <Row label="SKU" value={product.sku} />
                                 <Row
+                                    label="Barcodes"
+                                    value={
+                                        product.barcodes?.length
+                                            ? product.barcodes
+                                                  .map((b) => b.code)
+                                                  .join(', ')
+                                            : '—'
+                                    }
+                                />
+                                <Row
                                     label="ERP Product ID"
                                     value={product.erp_product_id ?? '—'}
                                 />

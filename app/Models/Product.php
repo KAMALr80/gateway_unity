@@ -93,6 +93,38 @@ class Product extends Model
         return $this->belongsTo(Brand::class);
     }
 
+    /** Codes it is sold under besides its sku; the product sync replaces them on every sync. */
+    public function barcodes(): HasMany
+    {
+        return $this->hasMany(ProductBarcode::class)->orderBy('id');
+    }
+
+    /**
+     * Products whose sku or any barcode is one of ProductBarcode::lookupCodes($code), compared whole
+     * (MySQL's collation ignores case). A blank code matches nothing.
+     */
+    public function scopeWithCode($query, ?string $code)
+    {
+        return $query->where(self::codeMatcher($code));
+    }
+
+    /** scopeWithCode's condition, for plain query builders on the products table as well. */
+    public static function codeMatcher(?string $code): \Closure
+    {
+        $codes = ProductBarcode::lookupCodes($code);
+
+        return function ($q) use ($codes) {
+            if ($codes === []) {
+                $q->whereRaw('1 = 0');
+
+                return;
+            }
+
+            $q->whereIn('sku', $codes)
+                ->orWhereIn('id', ProductBarcode::query()->select('product_id')->whereIn('code', $codes));
+        };
+    }
+
     public function media(): MorphMany
     {
         return $this->morphMany(Media::class, 'mediable')->orderBy('sort_order');

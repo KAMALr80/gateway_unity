@@ -21,6 +21,7 @@ class UserController extends Controller
             'email'          => $user->email,
             'phone'          => $user->phone,
             'address'        => $user->address,
+            'state'          => $user->state,
             'erp_contact_id' => $user->erp_contact_id,
             'orders_count'   => $user->orders->count(),
             'approval_status' => $user->approval_status,

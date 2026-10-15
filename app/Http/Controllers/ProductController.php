@@ -20,6 +20,7 @@ class ProductController extends Controller
         $request->validate([
             'per_page' => ['nullable', 'integer', 'min:1'],
             'search' => ['nullable', 'string'],
+            'barcode' => ['nullable', 'string', 'max:191'],
             'featured' => ['nullable', 'boolean'],
             'best_seller' => ['nullable', 'boolean'],
         ]);
@@ -40,6 +41,7 @@ class ProductController extends Controller
                 'featured',
                 'best_seller',
                 'search',
+                'barcode',
                 'include_children',
                 'sort',
                 'per_page',
@@ -58,7 +60,7 @@ class ProductController extends Controller
         }
 
         $query = Product::query()
-            ->with(['category', 'subCategory', 'brand', 'primaryImage'])
+            ->with(['category', 'subCategory', 'brand', 'primaryImage', 'barcodes'])
             ->where('is_active', true);
 
         if ($scope !== null) {
@@ -110,6 +112,21 @@ class ProductController extends Controller
         $includeChildren = filter_var($request->input('include_children', false), FILTER_VALIDATE_BOOLEAN);
         $search = $request->filled('search') ? $request->search : null;
 
+        // ?barcode=: products sold under exactly this code (sku or any barcode, leading-0 variants included).
+        // Without include_children, a variation's code lists its group, as a search does.
+        if ($request->filled('barcode')) {
+            $matchesCode = Product::codeMatcher($request->barcode);
+
+            if ($includeChildren) {
+                $query->where($matchesCode);
+            } else {
+                $query->where(function ($q) use ($matchesCode) {
+                    $q->where(fn ($own) => $own->whereNull('parent_id')->where($matchesCode))
+                        ->orWhereIn('id', Product::query()->select('parent_id')->whereNotNull('parent_id')->where($matchesCode));
+                });
+            }
+        }
+
         if (! $includeChildren) {
             if ($search) {
                 // Show top-level products that match the search, OR grouped parents
@@ -120,7 +137,8 @@ class ProductController extends Controller
                             ->where(function ($sq) use ($search) {
                                 $sq->where('name', 'like', "%{$search}%")
                                     ->orWhere('sku', 'like', "%{$search}%")
-                                    ->orWhere('description', 'like', "%{$search}%");
+                                    ->orWhere('description', 'like', "%{$search}%")
+                                    ->orWhere(Product::codeMatcher($search));
                             });
                     })
                         ->orWhereIn('id', function ($sub) use ($search) {
@@ -130,7 +148,8 @@ class ProductController extends Controller
                                 ->where(function ($sq) use ($search) {
                                     $sq->where('name', 'like', "%{$search}%")
                                         ->orWhere('sku', 'like', "%{$search}%")
-                                        ->orWhere('description', 'like', "%{$search}%");
+                                        ->orWhere('description', 'like', "%{$search}%")
+                                        ->orWhere(Product::codeMatcher($search));
                                 });
                         });
                 });
@@ -144,7 +163,8 @@ class ProductController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('sku', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere(Product::codeMatcher($search));
             });
         }
 
@@ -209,6 +229,7 @@ class ProductController extends Controller
             'subCategory',
             'brand',
             'media',
+            'barcodes',
         ])
             ->where('is_active', true)
             ->findOrFail($id);
@@ -216,12 +237,12 @@ class ProductController extends Controller
         $groupData = ['parent' => null, 'children' => []];
 
         if ($product->type === 'grouped') {
-            $kids = $product->children()->with('primaryImage')->get();
+            $kids = $product->children()->with(['primaryImage', 'barcodes'])->get();
             $groupData['children'] = $kids->map(fn ($p) => $this->formatProduct($p, showPrices: $showPrices))->values()->all();
         } elseif ($product->parent_id && $withSiblings) {
             $parentProduct = $product->parent()->with('primaryImage')->first();
             $siblings = $parentProduct
-                ? $parentProduct->children()->with('primaryImage')->where('id', '!=', $product->id)->get()
+                ? $parentProduct->children()->with(['primaryImage', 'barcodes'])->where('id', '!=', $product->id)->get()
                 : collect();
 
             $groupData['parent'] = $parentProduct ? [
@@ -252,6 +273,8 @@ class ProductController extends Controller
             // The grouped product a variation belongs to (null otherwise), for grouping in carts.
             'parent_id' => $product->parent_id,
             'sku' => $product->sku,
+            // Every other code it is sold under (ERP sku_1/sku_2/barcode_number, variation barcodes), for scanning.
+            'barcodes' => $product->barcodes->pluck('code')->values()->all(),
             'regular_price' => $showPrices ? $product->regular_price : null,
             'sale_price' => $showPrices ? $product->sale_price : null,
             'current_price' => $showPrices ? $product->current_price : null,

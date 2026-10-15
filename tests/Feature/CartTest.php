@@ -302,7 +302,7 @@ test('placing an order removes the ordered products from the account cart', func
     $this->actingAs($user, 'api')->postJson('/api/cart/items', ['product_id' => $kept->id, 'quantity' => 1]);
 
     $address = [
-        'first_name' => 'Jane', 'last_name' => 'Doe', 'address_1' => '1 Main St', 'city' => 'Town',
+        'first_name' => 'Jane', 'last_name' => 'Doe', 'address_1' => '1 Main St', 'city' => 'Town', 'state' => 'GA',
         'postcode' => '12345', 'country' => 'US', 'phone' => '5550000',
     ];
     $payload = ['items' => [['product_id' => $ordered->id, 'quantity' => 1]], 'billing_email' => $user->email];

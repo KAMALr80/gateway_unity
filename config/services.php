@@ -43,7 +43,11 @@ return [
 
     'erp' => [
         'order_webhook_url' => env('ERP_ORDER_WEBHOOK_URL'),
+        // Tax quotes for the cart. Unset: the order URL with "/orders" replaced by "/tax".
+        'tax_url' => env('ERP_TAX_URL'),
         'webhook_secret' => env('ERP_WEBHOOK_SECRET'),
+        // An order needs a state (the account's, else the address's): the ERP's state taxes depend on it.
+        'require_state' => (bool) env('ORDERS_REQUIRE_STATE', true),
         'internal_key' => env('INTERNAL_API_KEY'),
     ],
 

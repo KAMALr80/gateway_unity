@@ -48,6 +48,12 @@ class ErpOrderService
         if ($response->successful()) {
             $body = $response->json();
 
+            // The ERP adds the state tax it charged; its totals replace the untaxed ones the order was placed with.
+            $totals = [];
+            if (is_numeric($body['total_tax'] ?? null) && is_numeric($body['total'] ?? null)) {
+                $totals = ['total_tax' => $body['total_tax'], 'total' => $body['total']];
+            }
+
             $order->update([
                 'sync_status'          => 'synced',
                 'erp_order_id'         => $body['erp_order_id'] ?? null,
@@ -55,7 +61,7 @@ class ErpOrderService
                 'last_sync_attempt_at' => now(),
                 'synced_at'            => now(),
                 'sync_error'           => null,
-            ]);
+            ] + $totals);
 
             return true;
         }

@@ -155,7 +155,7 @@ class HomepageController extends Controller
             ->where('is_active', true)
             ->where('in_stock', true)
             ->whereNull('parent_id')
-            ->with(['category', 'subCategory', 'brand', 'primaryImage']);
+            ->with(['category', 'subCategory', 'brand', 'primaryImage', 'barcodes']);
 
         if ($scope !== null) {
             CatalogScope::restrictProducts($query, $scope);

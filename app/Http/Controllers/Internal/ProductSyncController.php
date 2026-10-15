@@ -7,9 +7,12 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Media;
 use App\Models\Product;
+use App\Models\ProductBarcode;
 use App\Services\CacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
 class ProductSyncController extends Controller
 {
     public function __construct(protected CacheService $cache) {}
@@ -28,6 +31,8 @@ class ProductSyncController extends Controller
             'products.*.images'              => ['sometimes', 'array'],
             'products.*.images.*.url'        => ['required_with:products.*.images', 'string'],
             'products.*.images.*.is_primary' => ['sometimes', 'boolean'],
+            // Strings or {code, source} objects; cleaned and de-duplicated in ProductBarcode::normalize().
+            'products.*.barcodes'            => ['sometimes', 'nullable', 'array', 'max:50'],
         ]);
 
         $synced = 0;
@@ -85,6 +90,12 @@ class ProductSyncController extends Controller
                     $this->syncImages($product, $data['images']);
                 }
 
+                // Sent → replaces the product's codes (an empty list clears them). Not sent (an older ERP
+                // module) → the codes stay as they are.
+                if (array_key_exists('barcodes', $data)) {
+                    $this->syncBarcodes($product, $data['barcodes'] ?? []);
+                }
+
                 $this->cache->invalidateProduct($product->id);
                 $synced++;
 
@@ -102,6 +113,16 @@ class ProductSyncController extends Controller
             'message' => "Synced {$synced} products",
             'errors'  => $errors,
         ]);
+    }
+
+    private function syncBarcodes(Product $product, array $barcodes): void
+    {
+        $codes = ProductBarcode::normalize($barcodes, $product->sku);
+
+        DB::transaction(function () use ($product, $codes) {
+            ProductBarcode::where('product_id', $product->id)->delete();
+            $product->barcodes()->createMany($codes);
+        });
     }
 
     private function syncImages(Product $product, array $images): void

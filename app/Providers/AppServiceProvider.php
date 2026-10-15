@@ -124,6 +124,11 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('api-token-refresh', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
+        // Tax quotes ask the ERP live, so they get a tighter cap: enough for every cart open and quantity change.
+        RateLimiter::for('api-cart-tax', fn (Request $request) => Limit::perMinute(30)->by(
+            (string) (auth('api')->id() ?? $request->ip())
+        ));
+
         // Cart / wishlist / address writes by a signed-in user.
         RateLimiter::for('api-user-writes', fn (Request $request) => Limit::perMinute(120)->by(
             (string) (auth('api')->id() ?? $request->ip())

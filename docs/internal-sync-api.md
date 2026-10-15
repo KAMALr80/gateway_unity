@@ -256,6 +256,10 @@ Groups are modelled as a parent product with `type = "grouped"` and a string ERP
         "color": "Black",
         "connectivity": "Bluetooth 5.0"
       },
+      "barcodes": [
+        { "code": "0123456789012", "source": "barcode" },
+        { "code": "WHX1-CASE", "source": "case_barcode2" }
+      ],
       "images": [
         {
           "url": "https://cdn.example.com/products/wh-x1-main.jpg",
@@ -294,6 +298,7 @@ Groups are modelled as a parent product with `type = "grouped"` and a string ERP
 | `products[].is_active` | boolean | No | Whether product is visible in the catalog. Defaults to `true`. |
 | `products[].attributes` | object\|null | No | Arbitrary key-value pairs stored as JSON (e.g. color, size, material). |
 | `products[].website_url` | string\|null | No | The product's page on the storefront, max 500 characters. Returned to the app as `website_url` for share links. Omitted or `null` clears it. |
+| `products[].barcodes` | array\|null | No | Every other code the product is sold under, for scanning. Each item is `{code, source}` or a plain string; `source` (max 32 characters) names the ERP column. If provided, **replaces all of the product's codes**; `[]` or `null` clears them; omitted leaves them unchanged. At most 50. |
 | `products[].images` | array | No | Image set for this product. If provided, **replaces all existing images**. |
 | `products[].images[].url` | string | Required if `images` present | Image URL. |
 | `products[].images[].alt` | string | No | Alt text. Defaults to the product name. |
@@ -328,6 +333,8 @@ Groups are modelled as a parent product with `type = "grouped"` and a string ERP
 - `erp_category_id`, `erp_sub_category_id`, `erp_brand_id` are resolved to Gateway internal IDs at sync time. If a referenced brand or category has not been synced yet, those FK fields will be set to `null` — no error is raised
 - `parent_erp_id` is resolved to Gateway's internal `parent_id` integer FK at sync time. If the referenced parent has not been synced yet, `parent_id` is set to `null`. **Sync grouped parents before children to avoid this.**
 - **Image replacement:** when `images` is present, all existing media records for that product are deleted and replaced with the new set. Sort order follows array index order. If `images` is omitted, existing images are left unchanged
+- **Barcodes** (`product_barcodes`): when `barcodes` is present, the product's rows are deleted and the new set inserted, in one transaction. Each code is trimmed and runs of spaces inside it become one space. A code that is blank, `null` or over 191 characters is dropped. A code already in the list, or equal to the product's own `sku`, is dropped too (compared without case). Codes stay in the order sent. Two products may share a code; a scan then lists both. The model refuses to save a blank code from anywhere else as well
+- Unity's ERP module sends: for a single product, `sku_1`, `sku_2` and `barcode_number`, then its variation's `sub_sku`, `barcode`, `barcode2` and `case_barcode2`. For a group, its `sku`, `sku_1`, `sku_2` and `barcode_number` (a group's `sku` stays empty because the column is unique, so the ERP SKU is kept among its codes). For a variation, `sub_sku`, `barcode`, `barcode2` and `case_barcode2`. `products.sku` keeps the ERP's `sku` / `sub_sku` as before
 - `synced_at` timestamp is set to the current time on every sync
 - Individual product caches (`product:{id}`, `product:{id}:siblings`) and all product list caches (`products:list:*`) are invalidated after sync
 
@@ -350,6 +357,7 @@ Upserts customer/user accounts. Existing users are matched by email, then by `er
       "name": "Jane Doe",
       "phone": "+1-555-0100",
       "address": "123 Main Street, Springfield, IL 62701",
+      "state": "Illinois",
       "contact_code": "CO0301",
       "woo_username": "CO0301",
       "woo_password": "CO0301$Uwd@123"
@@ -366,6 +374,7 @@ Upserts customer/user accounts. Existing users are matched by email, then by `er
 | `contacts[].name` | string | Yes | Full name. |
 | `contacts[].phone` | string\|null | No | Phone number. On update, existing value is preserved if omitted. |
 | `contacts[].address` | string\|null | No | Address string. On update, existing value is preserved if omitted. |
+| `contacts[].state` | string\|null | No | The contact's state (`contacts.state`), max 100 characters. The ERP charges state taxes by it, and an app order needs a state: this one, or else the order address's. Trimmed; empty or `null` clears it; omitted leaves it unchanged. Shown to the customer as `state` on `GET /api/users/me`. |
 | `contacts[].contact_code` | string\|null | No | The ERP contact code (`contacts.contact_id`, e.g. `CO0301`). The customer can log in with it. |
 | `contacts[].woo_username` | string\|null | No | WooCommerce username. The customer can log in with it. |
 | `contacts[].woo_password` | string\|null | No | WooCommerce password, plain text, exactly as stored (not trimmed). When set it becomes the account's only password: the app's change-password and reset-password refuse, and forgot password emails these login details. `null` means no Woo account; the customer keeps their own password. |
@@ -400,6 +409,7 @@ Upserts customer/user accounts. Existing users are matched by email, then by `er
 - **Existing user:** `name`, `email`, `phone`, `address`, and `erp_contact_id` are updated. `password` is only ever replaced by a changed `woo_password`
 - **New user:** created with `name`, `email`, `phone`, `address`, `erp_contact_id`, and the `woo_password` or else a random 32-character hashed password
 - **Woo login:** `woo_password` is stored encrypted and hashed into `password` only when it changed. `contact_code`, `woo_username` and `woo_password` are each left as they are when the key is omitted (older ERP modules)
+- **State:** `users.state`. Left as it is when the key is omitted (older ERP modules)
 - No cache invalidation — users are not cached
 
 ---
@@ -515,3 +525,65 @@ POST /internal/contacts/sync
 ```
 
 For incremental updates, only the changed records need to be sent. Each endpoint is safe to call repeatedly — every call is an upsert.
+
+---
+
+## Calls the Gateway Makes to the ERP
+
+These go the other way: the gateway calls the ERP. Unity's ERP module (`app/Gateway/`) serves them. Each `POST` is signed with HMAC-SHA256 of the raw JSON body, using `ERP_WEBHOOK_SECRET`, and sent in `X-Webhook-Secret`. A bad signature gets `401`.
+
+| Call | When | Gateway setting |
+|---|---|---|
+| `POST {ERP}/gateway/orders` | An order is placed (queued job, retried) | `ERP_ORDER_WEBHOOK_URL` |
+| `GET {ERP}/gateway/orders/{erp_order_id}?order_key=…` | The app opens a synced order | same URL; signs `"{timestamp}\n{id}\n{order_key}"` with `X-Webhook-Timestamp` |
+| `POST {ERP}/gateway/tax` | The cart asks for its tax (`POST /api/cart/tax`) | `ERP_TAX_URL`, else the order URL with `/orders` replaced by `/tax` |
+
+### POST {ERP}/gateway/orders: reply
+
+`201` (created) or `200` (already received):
+
+```json
+{ "erp_order_id": 123, "invoice_no": "0042", "total_tax": 1.5, "total": 41.5 }
+```
+
+`total_tax` and `total` are the sale's, with the state tax the ERP added. The gateway replaces the order's `total_tax` and `total` with them. An older ERP module leaves both out, and then the gateway keeps its own.
+
+### POST {ERP}/gateway/tax
+
+What a cart would be charged. Read-only: the ERP saves nothing.
+
+```json
+{
+  "contact_id": 301,
+  "email": "jane.doe@example.com",
+  "state": "GA",
+  "lines": [
+    { "product_id": "VAR#1203", "quantity": 3 },
+    { "product_id": "877", "quantity": 1 }
+  ]
+}
+```
+
+| Field | Description |
+|---|---|
+| `contact_id` | The account's `erp_contact_id`, or `null`. |
+| `email` | The account's email. The ERP uses it to find the customer when `contact_id` is missing or unknown, the same way it does for orders. |
+| `state` | The state of the address being ordered to, or `null`. Used only when the customer has no state in the ERP. |
+| `lines[].product_id` | ERP product ids as the product sync sends them. |
+
+```json
+{
+  "state": "Georgia",
+  "state_source": "customer",
+  "lines": [
+    { "product_id": "VAR#1203", "quantity": 3, "tax_id": 5, "tax_name": "GA vape tax", "tax": 1.5 },
+    { "product_id": "877", "quantity": 1, "tax_id": null, "tax_name": null, "tax": 0 }
+  ],
+  "total_tax": 1.5
+}
+```
+
+- `state` is spelled the ERP's way ("Georgia" for "GA"). `state_source` is `customer` (the ERP contact's state), `address` (the `state` sent) or `null` (neither).
+- Lines come back in the order sent. An unknown line, a group or another business's product has `tax: 0`.
+- The rule and amount are the ones Sell → Add would use. See the ERP module README.
+- The gateway gives up after 8 seconds and reports the tax as unavailable.

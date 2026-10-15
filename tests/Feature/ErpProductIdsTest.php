@@ -24,7 +24,7 @@ function unityOrderPayload(array $items): array
 {
     $address = [
         'first_name' => 'Jane', 'last_name' => 'Doe', 'address_1' => '1 Main St',
-        'city' => 'Centerville', 'postcode' => '31028', 'country' => 'US',
+        'city' => 'Centerville', 'state' => 'GA', 'postcode' => '31028', 'country' => 'US',
     ];
 
     $payload = ['items' => $items, 'billing_email' => 'jane@example.com', 'billing_phone' => '4785550100'];

@@ -24,7 +24,8 @@ class ProductController extends Controller
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%");
+                    ->orWhere('sku', 'like', "%{$search}%")
+                    ->orWhere(Product::codeMatcher($search));
             });
         }
 
@@ -125,6 +126,7 @@ class ProductController extends Controller
             'parent',
             'children' => fn ($q) => $q->with('primaryImage'),
             'media',
+            'barcodes',
         ]);
 
         $wishlistCount = WishlistItem::where('product_id', $product->id)->count();

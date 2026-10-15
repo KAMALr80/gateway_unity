@@ -11,7 +11,7 @@ uses(RefreshDatabase::class);
 function hardeningOrderPayload(User $user, array $items, array $extra = []): array
 {
     $payload = ['items' => $items, 'billing_email' => $user->email];
-    foreach (['first_name' => 'Jane', 'last_name' => 'Doe', 'address_1' => '1 Main St', 'city' => 'Town', 'postcode' => '12345', 'country' => 'US', 'phone' => '5550000'] as $k => $v) {
+    foreach (['first_name' => 'Jane', 'last_name' => 'Doe', 'address_1' => '1 Main St', 'city' => 'Town', 'state' => 'GA', 'postcode' => '12345', 'country' => 'US', 'phone' => '5550000'] as $k => $v) {
         $payload["billing_{$k}"]  = $v;
         $payload["shipping_{$k}"] = $v;
     }

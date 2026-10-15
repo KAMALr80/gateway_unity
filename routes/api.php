@@ -4,6 +4,7 @@ use App\Http\Controllers\AddressController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\CartTaxController;
 use App\Http\Controllers\HomepageController;
 use App\Http\Controllers\MediaThumbnailController;
 use App\Http\Controllers\UserController;
@@ -88,6 +89,9 @@ Route::middleware('auth:api')->group(function () {
 
     // Cart (account-level, shared across devices)
     Route::get('/cart',                          [CartController::class, 'index']);
+
+    // The cart's tax, asked from the ERP each time the cart opens. Only approved accounts see prices and order.
+    Route::post('/cart/tax', CartTaxController::class)->middleware(['require.approved', 'throttle:api-cart-tax']);
 
     // Wishlist
     Route::get('/wishlist',                         [WishlistController::class, 'index']);

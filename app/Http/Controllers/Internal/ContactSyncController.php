@@ -22,6 +22,7 @@ class ContactSyncController extends Controller
             'contacts.*.name'           => ['required', 'string'],
             'contacts.*.phone'          => ['sometimes', 'nullable', 'string'],
             'contacts.*.address'        => ['sometimes', 'nullable', 'string'],
+            'contacts.*.state'          => ['sometimes', 'nullable', 'string', 'max:100'],
             'contacts.*.contact_code'   => ['sometimes', 'nullable', 'string', 'max:191'],
             'contacts.*.woo_username'   => ['sometimes', 'nullable', 'string', 'max:191'],
             'contacts.*.woo_password'   => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -105,6 +106,11 @@ class ContactSyncController extends Controller
                 'approval_status' => 'approved',
                 'approved_by'     => 'erp_sync',
             ]);
+        }
+
+        // The ERP's own value, which its state taxes go by. Not sent (an older module) → unchanged.
+        if (array_key_exists('state', $data)) {
+            $user->state = trim((string) $data['state']) ?: null;
         }
 
         $this->applyWooLogin($user, $data);

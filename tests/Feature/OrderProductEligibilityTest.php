@@ -37,7 +37,7 @@ beforeEach(function () {
 function eligibilityOrder(array $items, array $extra = []): array
 {
     return array_merge([
-        'billing_first_name' => 'Ada', 'billing_last_name' => 'Buyer', 'billing_address_1' => '1 Main St', 'billing_city' => 'Nashua',
+        'billing_first_name' => 'Ada', 'billing_last_name' => 'Buyer', 'billing_address_1' => '1 Main St', 'billing_city' => 'Nashua', 'billing_state' => 'NH',
         'billing_postcode' => '03063', 'billing_country' => 'US', 'billing_email' => 'ada@example.test', 'billing_phone' => '5555555555',
         'shipping_first_name' => 'Ada', 'shipping_last_name' => 'Buyer', 'shipping_address_1' => '1 Main St', 'shipping_city' => 'Nashua',
         'shipping_postcode' => '03063', 'shipping_country' => 'US',

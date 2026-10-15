@@ -79,6 +79,16 @@ class OrderController extends Controller
         $user = auth('api')->user();
         $data = $request->validated();
 
+        // The ERP charges state taxes by the customer's state: their ERP account's, else the order address's.
+        // Without one the order would escape those taxes, so it isn't taken.
+        $state = trim((string) $user->state) ?: trim((string) ($data['billing_state'] ?? '')) ?: trim((string) ($data['shipping_state'] ?? ''));
+        if ($state === '' && config('services.erp.require_state', true)) {
+            return response()->json([
+                'message' => 'Please add your state to your address. Tax depends on it, so an order needs one.',
+                'errors'  => ['billing_state' => ['The state is required to place an order.']],
+            ], 422);
+        }
+
         // Resolve products and calculate totals
         $productIds = collect($data['items'])->pluck('product_id');
         $productQuery = Product::whereIn('id', $productIds)
@@ -294,6 +304,8 @@ class OrderController extends Controller
                     'quantity'   => $count($item['quantity'] ?? 0),
                     'unit_price' => $money($item['unit_price'] ?? 0),
                     'unit_tax'   => $money($item['unit_tax'] ?? 0),
+                    // The line's state tax (transaction_sell_lines.pos_line_tax_amount); total_tax includes it.
+                    'line_tax'   => $money($item['line_tax'] ?? 0),
                     'total'      => $money($item['total'] ?? 0),
                 ];
             })->values()->all(),

@@ -97,7 +97,7 @@ it('keeps the wishlist and checkout inside the category', function () {
         ->assertJsonPath('data.0.product.name', 'SHOPPING BAG LARGE');
 
     Queue::fake();
-    $address = ['first_name' => 'App', 'last_name' => 'Review', 'address_1' => '1 Main St', 'city' => 'Centerville', 'postcode' => '31028', 'country' => 'US'];
+    $address = ['first_name' => 'App', 'last_name' => 'Review', 'address_1' => '1 Main St', 'city' => 'Centerville', 'state' => 'GA', 'postcode' => '31028', 'country' => 'US'];
     $order = fn (Product $product) => array_merge(
         ['items' => [['product_id' => $product->id, 'quantity' => 1]], 'billing_email' => 'review@example.com', 'billing_phone' => '4785550100'],
         collect($address)->mapWithKeys(fn ($v, $k) => ["billing_{$k}" => $v, "shipping_{$k}" => $v])->all()
@@ -124,7 +124,7 @@ it('hides chosen products, and their variations, from the scoped user only', fun
     }
     fresh($this, $reviewer)->postJson('/api/wishlist', ['product_id' => $this->paperBag->id])->assertNotFound();
 
-    $address = ['first_name' => 'App', 'last_name' => 'Review', 'address_1' => '1 Main St', 'city' => 'Centerville', 'postcode' => '31028', 'country' => 'US'];
+    $address = ['first_name' => 'App', 'last_name' => 'Review', 'address_1' => '1 Main St', 'city' => 'Centerville', 'state' => 'GA', 'postcode' => '31028', 'country' => 'US'];
     $order = array_merge(
         ['items' => [['product_id' => $glass->id, 'quantity' => 1]], 'billing_email' => 'review@example.com', 'billing_phone' => '4785550100'],
         collect($address)->mapWithKeys(fn ($v, $k) => ["billing_{$k}" => $v, "shipping_{$k}" => $v])->all()

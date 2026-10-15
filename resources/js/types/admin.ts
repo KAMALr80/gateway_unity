@@ -108,8 +108,15 @@ export interface AdminProduct {
     children?: AdminProduct[];
     primary_image?: Media | null;
     media?: Media[];
+    barcodes?: AdminProductBarcode[];
     created_at: string;
     updated_at: string;
+}
+
+export interface AdminProductBarcode {
+    id: number;
+    code: string;
+    source: string | null;
 }
 
 export interface AdminOrderItem {
